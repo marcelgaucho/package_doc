@@ -2978,8 +2978,11 @@ def preprocessa_fine_tuning(input_dir, y_dir):
     # Load Arrays
     x_train = np.load(input_dir + 'x_train.npy')
     x_valid = np.load(input_dir + 'x_valid.npy')
+    x_test = np.load(input_dir + 'x_test.npy')
     y_train = np.load(y_dir + 'y_train.npy')
     y_valid = np.load(y_dir + 'y_valid.npy')
+    y_test = np.load(y_dir + 'y_test.npy')
+
     
     # Preprocess X arrays
     feature_extractor = SegformerFeatureExtractor()
@@ -2987,25 +2990,36 @@ def preprocessa_fine_tuning(input_dir, y_dir):
     std = np.array(feature_extractor.image_std)
     
     x_train = (x_train - mean)/np.maximum(std, K.epsilon())
-    x_valid = (x_valid - mean)/np.maximum(std, K.epsilon())    
+    x_valid = (x_valid - mean)/np.maximum(std, K.epsilon())  
+    x_test = (x_test - mean)/np.maximum(std, K.epsilon())    
+
     
     # Change dimensions to adapt to model
     x_train = np.transpose(x_train, (0, 3, 1, 2))
     x_valid = np.transpose(x_valid, (0, 3, 1, 2))
+    x_test = np.transpose(x_test, (0, 3, 1, 2))
     y_train = np.squeeze(y_train, 3)
     y_valid = np.squeeze(y_valid, 3)
+    y_test = np.squeeze(y_test, 3)
+
     
     # Save Xs and Ys and load again to occupy less space in memory
     if not os.path.exists(os.path.join(input_dir, 'x_train_fine.npy')) or \
        not os.path.exists(os.path.join(input_dir, 'x_valid_fine.npy')) or \
+       not os.path.exists(os.path.join(input_dir, 'x_test_fine.npy')) or \
        not os.path.exists(os.path.join(y_dir, 'y_train_fine.npy')) or \
-       not os.path.exists(os.path.join(y_dir, 'y_valid_fine.npy')):
+       not os.path.exists(os.path.join(y_dir, 'y_valid_fine.npy')) or \
+       not os.path.exists(os.path.join(y_dir, 'y_test_fine.npy')):
            
         x_train = x_train.astype(np.float16) 
         x_valid = x_valid.astype(np.float16) 
+        x_test = x_test.astype(np.float16) 
            
         np.save(input_dir + 'x_train_fine.npy', x_train)
         np.save(input_dir + 'x_valid_fine.npy', x_valid)
+        np.save(input_dir + 'x_test_fine.npy', x_test)
         np.save(y_dir + 'y_train_fine.npy', y_train)
         np.save(y_dir + 'y_valid_fine.npy', y_valid)
+        np.save(y_dir + 'y_test_fine.npy', y_test)
+
     
