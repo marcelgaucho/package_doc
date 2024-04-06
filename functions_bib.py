@@ -2484,25 +2484,14 @@ def avalia_transfer_learning_segformer(input_dir, y_dir, output_dir, model_check
     
     # Avalia treino    
     if avalia_train:
-        x_train = np.load(input_dir + 'x_train.npy')
-        y_train = np.load(y_dir + 'y_train.npy')
+        x_train = np.load(input_dir + 'x_train_fine.npy')
+        y_train = np.load(y_dir + 'y_train_fine.npy')
         
-        # Preprocess X array
-        feature_extractor = SegformerFeatureExtractor()
-        mean = np.array(feature_extractor.image_mean)
-        std = np.array(feature_extractor.image_std)
-    
-        x_train = (x_train - mean)/np.maximum(std, K.epsilon())
-        
-        # Change dimensions to adapt to model
-        x_train = np.transpose(x_train, (0, 3, 1, 2))
-        y_train = np.squeeze(y_train, 3)
-
         if not os.path.exists(os.path.join(output_dir, 'pred_train.npy')) or \
            not os.path.exists(os.path.join(output_dir, 'prob_train.npy')): 
     
             prob_train = model.predict(x_train, batch_size=2, verbose=1).logits
-            prob_train = tf.transpose(prob_train, [0, 2, 3, 1]) # Transpose dimensions
+            prob_train = tf.transpose(prob_train, [0, 2, 3, 1]) # Transpose dimensions to channel-last
             prob_train = tf.image.resize(prob_train, size=(x_train.shape[2], x_train.shape[3])).numpy()
             pred_train = np.argmax(prob_train, axis=-1)[..., np.newaxis]
             
@@ -2574,20 +2563,8 @@ def avalia_transfer_learning_segformer(input_dir, y_dir, output_dir, model_check
         gc.collect()
         
     # Avalia Valid
-    x_valid = np.load(input_dir + 'x_valid.npy')
-    y_valid = np.load(y_dir + 'y_valid.npy')
-    
-    # Preprocess X array
-    feature_extractor = SegformerFeatureExtractor()
-    mean = np.array(feature_extractor.image_mean)
-    std = np.array(feature_extractor.image_std)
-    
-    x_valid = (x_valid - mean)/np.maximum(std, K.epsilon())
-    
-    # Change dimensions to adapt to model
-    x_valid = np.transpose(x_valid, (0, 3, 1, 2))
-    y_valid = np.squeeze(y_valid, 3)
-
+    x_valid = np.load(input_dir + 'x_valid_fine.npy')
+    y_valid = np.load(y_dir + 'y_valid_fine.npy')
     
     if not os.path.exists(os.path.join(output_dir, 'pred_valid.npy')) or \
        not os.path.exists(os.path.join(output_dir, 'prob_valid.npy')):
@@ -2655,19 +2632,8 @@ def avalia_transfer_learning_segformer(input_dir, y_dir, output_dir, model_check
     gc.collect()
     
     # Avalia teste
-    x_test = np.load(input_dir + 'x_test.npy')
-    y_test = np.load(y_dir + 'y_test.npy')
-    
-    # Preprocess X array
-    feature_extractor = SegformerFeatureExtractor()
-    mean = np.array(feature_extractor.image_mean)
-    std = np.array(feature_extractor.image_std)
-    
-    x_test = (x_test - mean)/np.maximum(std, K.epsilon())
-    
-    # Change dimensions to adapt to model
-    x_test = np.transpose(x_test, (0, 3, 1, 2))
-    y_test = np.squeeze(y_test, 3)
+    x_test = np.load(input_dir + 'x_test_fine.npy')
+    y_test = np.load(y_dir + 'y_test_fine.npy')
     
     if not os.path.exists(os.path.join(output_dir, 'pred_test.npy')) or \
        not os.path.exists(os.path.join(output_dir, 'prob_test.npy')):

@@ -593,6 +593,16 @@ def transfer_learning_segformer(input_dir, y_dir, output_dir, model_checkpoint, 
     y_train = np.load(y_dir + 'y_train_fine.npy')
     y_valid = np.load(y_dir + 'y_valid_fine.npy')
     
+    # Convert them to tensors
+    with tf.device('/CPU:0'):
+        x_train = tf.convert_to_tensor(x_train)
+        x_valid = tf.convert_to_tensor(x_valid)
+        y_train = tf.convert_to_tensor(y_train)
+        y_valid = tf.convert_to_tensor(y_valid)
+        
+    # Livra memória no que for possível
+    gc.collect()  
+    
     # Load Model
     id2label = {0: "background", 1: "road"}
     label2id = {label: id for id, label in id2label.items()}
