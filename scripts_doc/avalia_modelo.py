@@ -22,7 +22,7 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 
 # %%
 
-from functions_bib import avalia_modelo
+from package_doc.functions_bib import avalia_modelo
 
 # %% Teste da função de avaliação
 

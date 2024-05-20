@@ -14,6 +14,7 @@ import time
 import types
 import gc
 from pathlib import Path
+import random
 
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.metrics import Metric
@@ -60,16 +61,225 @@ def show_graph_loss_accuracy(history, accuracy_position, metric_name = 'accuracy
         plt.close()
     else:
         plt.show(block=False)
+        
+        
+        
+@tf.function
+def train_step(x, y, model, loss_fn, optimizer, metrics_train):
+    with tf.GradientTape() as tape:
+        model_result = model(x, training=True)
+        loss_value = loss_fn(y, model_result)
+    
+    # Calcula e aplica gradiente
+    grads = tape.gradient(loss_value, model.trainable_weights)
+    optimizer.apply_gradients(zip(grads, model.trainable_weights))
+    
+    # Atualiza métricas de treino na lista
+    for train_metric in metrics_train:
+        train_metric.update_state(y, model_result)
+                
+    return loss_value
+
+
+@tf.function
+def test_step(x, y, model, loss_fn, metrics_val):
+    val_result = model(x, training=False)
+    loss_value = loss_fn(y, val_result)    
+    
+    # Atualiza métricas de validação na lista
+    for val_metric in metrics_val:
+        val_metric.update_state(y, val_result)
+        
+    return loss_value
+
+
+
+def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
+                    loss_fn, metrics_train=[], metrics_val=[], model_path='best_model.keras'):
+    '''
+    Treina modelo por um determinado número de épocas epochs, com early stopping de early_stopping_epochs, 
+    salvando o modelo no diretório model_savedir confome a primeira métrica na lista metrics_val
+    '''
+    # Valor da perda e valor da métrica serão armazenados em listas
+    history_train = [] 
+    history_valid = []
+    
+    # Valor de métrica possível
+    valid_metric_best_model = 1e-20
+    
+    # Contagem de épocas sem melhora em valid_metric_best_model
+    no_improvement_count = 0
+    
+    # Delta necessário em relação ao melhor resultado para NÃO cair em early stopping
+    early_stopping_delta = 0.01
+    
+    # Inicia loss acumulada no treino e validação
+    train_loss = 0
+    valid_loss = 0
+    
+    # Batch Size (final, já com aumento de dados, e não do dataset em si)
+    # batch_size = 16
+    
+    # Executa treinamento
+    for epoch in range(epochs):
+        print("\nStart of epoch %d" % (epoch))
+        start_time = time.time()
+        
+        # Percorre batches do dataset
+        for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+            # X e Y Batch Espelhamento Vertical (Flip)
+            x_batch_train_flip = tf.image.flip_up_down(x_batch_train)
+            y_batch_train_flip = tf.image.flip_up_down(y_batch_train)
+            
+            # X e Y Espelhamento Horizontal (Mirror)
+            x_batch_train_mirror = tf.image.flip_left_right(x_batch_train)
+            y_batch_train_mirror = tf.image.flip_left_right(y_batch_train)
+            
+            # Rotação 90 graus
+            x_batch_train_rot90 = tf.image.rot90(x_batch_train, k=1)
+            y_batch_train_rot90 = tf.image.rot90(y_batch_train, k=1)
+            
+            # Rotação 180 graus
+            x_batch_train_rot180 = tf.image.rot90(x_batch_train, k=2)
+            y_batch_train_rot180 = tf.image.rot90(y_batch_train, k=2)
+            
+            # Rotação 270 graus
+            x_batch_train_rot270 = tf.image.rot90(x_batch_train, k=3)
+            y_batch_train_rot270 = tf.image.rot90(y_batch_train, k=3)
+            
+            # Espelhamento Vertical e Rotação 90 graus
+            x_batch_train_flip_rot90 = tf.image.rot90(tf.image.flip_up_down(x_batch_train), k=1)
+            y_batch_train_flip_rot90 = tf.image.rot90(tf.image.flip_up_down(y_batch_train), k=1) 
+            
+            # Espelhamento Vertical e Rotação 270 graus
+            x_batch_train_flip_rot270 = tf.image.rot90(tf.image.flip_up_down(x_batch_train), k=3)
+            y_batch_train_flip_rot270 = tf.image.rot90(tf.image.flip_up_down(y_batch_train), k=3)  
+
+            # Concatenate tensors
+            x_batch_train = tf.concat([x_batch_train, x_batch_train_flip, x_batch_train_mirror, 
+                                       x_batch_train_rot90, x_batch_train_rot180, x_batch_train_rot270, 
+                                       x_batch_train_flip_rot90, x_batch_train_flip_rot270], axis=0) 
+            
+            y_batch_train = tf.concat([y_batch_train, y_batch_train_flip, y_batch_train_mirror, 
+                                       y_batch_train_rot90, y_batch_train_rot180, y_batch_train_rot270, 
+                                       y_batch_train_flip_rot90, y_batch_train_flip_rot270], axis=0) 
+
+
+            # Train Step
+            loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
+            
+            # Incrementa acumulador de loss
+            train_loss = train_loss + loss_value            
+                
+            # Log every 200 batches
+            if step % 200 == 0:
+                print(
+                    "Training loss (for one batch) at step %d: %.4f"
+                    % (step, float(loss_value))
+                )
+                print("Seen so far: %s samples" % ((step + 1) * x_batch_train.shape[0])) # x_batch_train.shape[0] é o batch size final, já com aumento de dados
+        
+        
+        # Adiciona loss acumulada/quantidade de batches   e a métrica acumulada (primeira da lista) para o histórico de treinao
+        history_train.append(   np.array([[train_loss/(step+1), metrics_train[0].result()]])   )         
+        
+        # Exibe métricas no final de cada época
+        for train_metric in metrics_train:
+            result_train_metric = train_metric.result()            
+            print(f"Training {train_metric.__class__.__name__.lower()} over epoch: {result_train_metric:.4f}")
+            train_metric.reset_state() # Dá reset na métrica de treino no final da época
+            
+        # Computa validação no final de cada época
+        for x_batch_val, y_batch_val in valid_dataset:
+            # Validation step
+            loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val) 
+
+            # Incrementa acumulador de loss da validação  
+            valid_loss = valid_loss + loss_value
+
+
+        # Adiciona loss acumulada/quantidade de batches   e a métrica acumulada (primeira da lista) para o histórico de validacao
+        metrics_val0 = metrics_val[0].result()
+        history_valid.append(   np.array([[valid_loss/(step+1), metrics_val0]])   )              
+ 
+        # Exibe métricas de Validação no final de cada época
+        for val_metric in metrics_val:
+            result_val_metric = val_metric.result()
+            print(f"Validation {val_metric.__class__.__name__.lower()}: {result_val_metric:.4f}")
+            val_metric.reset_state()
+            print("Time taken: %.2fs" % (time.time() - start_time))
+            
+        
+        # Early Stopping
+        if early_stopping_epochs:
+            # Se valor absoluto da diferenca de incremento (ou decremento) for abaixo de early_stopping_delta,
+            # então segue para contagem do Early Stopping
+            # Uma diferença positiva aumente a métrica (o que é considerado bom)
+            diff = metrics_val0 - valid_metric_best_model
+            if abs(diff) < early_stopping_delta:
+                # Stop if there are no improvement along early_stopping_epochs  
+                # This means, the situation above described persists for
+                # early_stopping_epochs
+                print('Early Stopping Count Increasing to: %d' % (no_improvement_count+1))
+                if no_improvement_count+1 >= early_stopping_epochs:
+                    print('Early Stopping reached')
+                    break
+                else:
+                    no_improvement_count = no_improvement_count+1
+                    
+            # Métrica diminuindo, pois metrics_val0 - valid_metric_best_model é menor que 1
+            # Como isso normalmente é ruim, também segue para contagem do Early Stopping
+            elif diff < 0:
+                # Stop if there are no improvement along early_stopping_epochs  
+                # This means, the situation above described persists for
+                # early_stopping_epochs
+                print('Early Stopping Count Increasing to: %d' % (no_improvement_count+1))
+                if no_improvement_count+1 >= early_stopping_epochs:
+                    print('Early Stopping reached')
+                    break
+                else:
+                    no_improvement_count = no_improvement_count+1
+                    
+            # Métrica aumentando, pois metrics_val0 - valid_metric_best_model é maior que 1
+            # Normalmente é uma coisa positiva, como por exemplo acurácia, precisão, recall aumentando.
+            # Então salvamos o modelo e zeramos a contagem do Early Stopping
+            else:
+                valid_metric_best_model = metrics_val0
+                no_improvement_count = 0
+    
+                # Saving best model  
+                print("Saving the model...")
+                model.save(model_path)
+            
+
+    # Retorna lista de 2 listas
+    # Primeira é com histórico de treino e segunda com histórico de validação
+    # Cada elemento tem na primeira posição a loss e na segunda a métrica para a época correspondente à posição do elemento
+    return [ history_train, history_valid ]
+
+
+
 
 
 def train_unet(net, x_train, y_train, x_valid, y_valid, batch_size, epochs, early_stopping_epochs, early_stopping_delta, filepath, 
                filename, early_stopping=True, early_loss=False, metric_name='f1score', lr_decay=False, train_with_dataset=False, 
-               tensorboard_log=False):
+               tensorboard_log=False, custom_train=False):
     print('Start the training...')
     
     early_stop = None
     filepath_name = os.path.join(filepath, filename+'.keras')
-
+    
+    if custom_train:
+        learning_rate = 0.001
+        optimizer = Adam(learning_rate = learning_rate , beta_1=0.9) # Otimizador
+        loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=False)
+        metrics_train = [F1Score(), tf.keras.metrics.Precision(class_id=1), tf.keras.metrics.Recall(class_id=1)]
+        metrics_val = [F1Score(), tf.keras.metrics.Precision(class_id=1), tf.keras.metrics.Recall(class_id=1)]
+        
+        resultado = train_model_loop(net, epochs, early_stopping_epochs, train_dataset=x_train, valid_dataset=x_valid, optimizer=optimizer, 
+                                    loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val, model_path=filepath_name)
+        
+        return resultado
     
     # Para log no tensorboard, precisa ter callback
     if tensorboard_log:
@@ -159,7 +369,8 @@ def train_unet(net, x_train, y_train, x_valid, y_valid, batch_size, epochs, earl
         
     # Treina Modelo
     if train_with_dataset:
-        pass
+        history = net.fit(x=x_train, epochs=epochs, verbose='auto',
+                          callbacks=callbacks, validation_data=x_valid) #, steps_per_epoch=5, validation_steps=5)
     else:
         history = net.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, verbose='auto',
                           callbacks=callbacks, validation_data=(x_valid, y_valid))
@@ -348,11 +559,57 @@ def jaccard_distance_loss(y_true, y_pred, smooth=100):
     return (1 - jac) * smooth
 
 
+def transform_augment(x, y):
+    # Sorteia opção
+    lista_opcoes = [0, 1, 2, 3, 4, 5, 6, 7]
+    opcao = random.choice(lista_opcoes)
+    
+    # Decide opção
+    # Mantém original
+    if opcao == 0:
+        return x, y
+    # Espelhamento Vertical (Flip)
+    elif opcao == 1:
+        x = tf.image.flip_up_down(x)
+        y = tf.image.flip_up_down(y)
+        return x, y
+    # Espelhamento Horizontal (Mirror)
+    elif opcao == 2:
+        x = tf.image.flip_left_right(x)
+        y = tf.image.flip_left_right(y)
+        return x, y
+    # Rotação 90 graus
+    elif opcao == 3:
+        x = tf.image.rot90(x, k=1)
+        y = tf.image.rot90(y, k=1)
+        return x, y
+    # Rotação 180 graus
+    elif opcao == 4:
+        x = tf.image.rot90(x, k=2)
+        y = tf.image.rot90(y, k=2)
+        return x, y
+    # Rotação 270 graus
+    elif opcao == 5:
+        x = tf.image.rot90(x, k=3)
+        y = tf.image.rot90(y, k=3)
+        return x, y
+    # Espelhamento Vertical e Rotação 90 graus
+    elif opcao == 6:
+        x = tf.image.rot90(tf.image.flip_up_down(x), k=1)
+        y = tf.image.rot90(tf.image.flip_up_down(y), k=1)
+        return x, y
+    # Espelhamento Vertical e Rotação 270 graus
+    elif opcao == 7:
+        x = tf.image.rot90(tf.image.flip_up_down(x), k=3)
+        y = tf.image.rot90(tf.image.flip_up_down(y), k=3)
+        return x, y
+
+
 # Função para treinar o modelo conforme os dados (arrays numpy) em uma pasta de entrada, salvando o modelo e o 
 # histórico na pasta de saída
 def treina_modelo(input_dir: str, y_dir: str, output_dir: str, model_type: str ='resunet chamorro', epochs=150, early_stopping=True, 
                   early_loss=False, loss='cross', weights=[0.25, 0.75], gamma=2, metric=F1Score(), best_model_filename = 'best_model',
-                  train_with_dataset=False, lr_decay=False):
+                  train_with_dataset=False, data_augmentation=False, lr_decay=False, custom_train=False):
     '''
     
 
@@ -408,14 +665,80 @@ def treina_modelo(input_dir: str, y_dir: str, output_dir: str, model_type: str =
         print('')
         
     else:
+        '''
+        with open(Path(y_dir / 'y_train.pickle'), 'rb') as fp:
+            y_train = pickle.load(fp)
+            
+        with open(Path(y_dir / 'y_valid.pickle'), 'rb') as fp:
+            y_valid = pickle.load(fp)
+
+        with open(Path(y_dir / 'x_train.pickle'), 'rb') as fp:
+            x_train = pickle.load(fp)
+            
+        with open(Path(y_dir / 'x_valid.pickle'), 'rb') as fp:
+            x_valid = pickle.load(fp)
+        '''        
+        
+        y_train = np.load(y_dir + 'y_train.npy')        
+        # Faz codificação One-Hot dos Ys se necessário
+        if y_train.shape[-1] == 1:
+            y_train = to_categorical(y_train, num_classes=2)
+
+        # Transforma dados para tensores dentro da CPU para evitar falta de espaço na GPU
+        # with tf.device('/CPU:0'):
+        #     y_train = tf.convert_to_tensor(y_train)
+
+        gc.collect() 
+
+
+        y_valid = np.load(y_dir + 'y_valid.npy')
+        # Faz codificação One-Hot dos Ys se necessário
+        if y_valid.shape[-1] == 1:
+            y_valid = to_categorical(y_valid, num_classes=2)
+
+        # Transforma dados para tensores dentro da CPU para evitar falta de espaço na GPU
+        # with tf.device('/CPU:0'):
+        #     y_valid = tf.convert_to_tensor(y_valid)
+ 
+        gc.collect()        
+
+
         x_train = np.load(input_dir + 'x_train.npy')
+        # Transforma dados para tensores dentro da CPU para evitar falta de espaço na GPU
+        # with tf.device('/CPU:0'):
+        #     x_train = tf.convert_to_tensor(x_train)
+
+        gc.collect() 
+
+
         x_valid = np.load(input_dir + 'x_valid.npy')
+        # Transforma dados para tensores dentro da CPU para evitar falta de espaço na GPU
+        # with tf.device('/CPU:0'):
+        #     x_valid = tf.convert_to_tensor(x_valid)
+
+        gc.collect()  
+
+        
+        print('Shape dos arrays:')
+        print('Shape x_train: ', x_train.shape)
+        print('Shape y_train: ', y_train.shape)
+        print('Shape x_valid: ', x_valid.shape)
+        print('Shape y_valid: ', y_valid.shape)
+        print('')
+        
+        '''
         y_train = np.load(y_dir + 'y_train.npy')
         y_valid = np.load(y_dir + 'y_valid.npy')
-        
-        # Faz codificação One-Hot dos Ys
-        y_train = to_categorical(y_train, num_classes=2)
-        y_valid = to_categorical(y_valid, num_classes=2)
+
+        # Faz codificação One-Hot dos Ys se necessário
+        if y_train.shape[-1] == 1:
+            y_train = to_categorical(y_train, num_classes=2)
+            y_valid = to_categorical(y_valid, num_classes=2)
+
+        gc.collect()        
+
+        x_train = np.load(input_dir + 'x_train.npy')
+        x_valid = np.load(input_dir + 'x_valid.npy')
         
         print('Shape dos arrays:')
         print('Shape x_train: ', x_train.shape)
@@ -433,13 +756,17 @@ def treina_modelo(input_dir: str, y_dir: str, output_dir: str, model_type: str =
                 y_valid = tf.convert_to_tensor(y_valid, dtype=tf.float32)
         
         # Livra memória no que for possível
-        gc.collect()  
+        gc.collect()
+        '''
+        
+        
 
     
     # Constroi modelo
     if train_with_dataset:
         # input_shape = (patch_size, patch_size, image_channels)
         input_shape = iter(train_dataset).next()[0].numpy().shape
+        # input_shape = (None,) + input_shape
         num_classes = 2
         model = build_model(input_shape, num_classes, model_type=model_type)
         # model.summary()
@@ -491,9 +818,63 @@ def treina_modelo(input_dir: str, y_dir: str, output_dir: str, model_type: str =
     #early_stopping_delta = 0.001 # aumento delta (percentual de diminuição da perda) equivalente a 0.1%
     early_stopping_delta = 0.001 # aumento delta (percentual de diminuição da perda) equivalente a 0.1%
 
+    # Preprocessa Dataset (com shuffle, batch e prefetch)
     if train_with_dataset:
-        shuffle_buffer = 100
-        train_dataset = train_dataset.shuffle(buffer_size=shuffle_buffer).batch(batch_size=batch_size).prefecth(buffer_size=1)
+        len_dataset = len(train_dataset)
+        n_repeat = 1 # Inicializa n_repeat em 1 (vai manter o tamanho do dataset como está)
+        if data_augmentation:
+            # Aumenta dataset de Tamanho n_repeat vezes e sorteia transformação para cada elemento do dataset
+            n_repeat = 2
+            train_dataset = train_dataset.repeat(n_repeat).map(transform_augment, num_parallel_calls=tf.data.AUTOTUNE)
+            
+            """
+            # Essa tentativa estourou memória
+            # Aumenta Dataset de Tamanho
+            # Original
+            train_dataset = train_dataset
+            
+            # Espelhamento Vertical (Flip)
+            train_dataset_flip = train_dataset.map(lambda x, y: (tf.image.flip_up_down(x), 
+                                                                 tf.image.flip_up_down(y)))
+            
+            # Espelhamento Horizontal (Mirror)
+            train_dataset_mirror = train_dataset.map(lambda x, y: (tf.image.flip_left_right(x), 
+                                                                 tf.image.flip_left_right(y)))
+            
+            # Rotação 90 graus
+            train_dataset_rot90 = train_dataset.map(lambda x, y: (tf.image.rot90(x, k=1), 
+                                                                  tf.image.rot90(y, k=1)))
+            
+            # Rotação 180 graus 
+            train_dataset_rot180 = train_dataset.map(lambda x, y: (tf.image.rot90(x, k=2), 
+                                                                  tf.image.rot90(y, k=2)))
+            
+            # Rotação 270 graus 
+            train_dataset_rot270 = train_dataset.map(lambda x, y: (tf.image.rot90(x, k=3), 
+                                                                  tf.image.rot90(y, k=3)))
+            
+            # Espelhamento Vertical e Rotação 90 graus
+            train_dataset_mirror_rot90 = train_dataset.map(lambda x, y: (tf.image.rot90(tf.image.flip_up_down(x), k=1), 
+                                                                 tf.image.rot90(tf.image.flip_up_down(y), k=1)))
+            
+            # Espelhamento Vertical e Rotação 270 graus
+            train_dataset_mirror_rot270 = train_dataset.map(lambda x, y: (tf.image.rot90(tf.image.flip_up_down(x), k=3), 
+                                                                 tf.image.rot90(tf.image.flip_up_down(y), k=3)))
+            
+            
+            
+            # Concatena todos os datasets
+            datasets = [train_dataset, train_dataset_flip, train_dataset_mirror, train_dataset_rot90, train_dataset_rot180,
+                        train_dataset_rot270, train_dataset_mirror_rot90, train_dataset_mirror_rot270]
+            train_dataset = tf.data.Dataset.from_tensor_slices(datasets)
+            train_dataset = train_dataset.flat_map(lambda x: x)
+            """
+            
+            
+        shuffle_buffer = len_dataset*n_repeat # *8 # 100, 1000 seriam melhores valores para o buffer do shuffle (que trariam desempenho mais ou menos 
+                                       # igual sem queda de desempenho)?
+        train_dataset = train_dataset.shuffle(buffer_size=shuffle_buffer).batch(batch_size=batch_size).prefetch(buffer_size=1)
+        valid_dataset = valid_dataset.batch(batch_size=batch_size).prefetch(buffer_size=1)
     
     print('Hiperparâmetros:')
     print('Modelo:', model_type)
@@ -516,7 +897,24 @@ def treina_modelo(input_dir: str, y_dir: str, output_dir: str, model_type: str =
     
     # Treina o modelo
     if train_with_dataset:
-        pass
+        # Testa se a métrica é string
+        if isinstance(metric, str):
+            history = train_unet(model, train_dataset, None, valid_dataset, None, batch_size, epochs, early_stopping_epochs, early_stopping_delta, 
+                         output_dir, best_model_filename, early_stopping=early_stopping, early_loss=early_loss, 
+                         metric_name=metric, lr_decay=lr_decay, train_with_dataset=True, custom_train=custom_train)
+        
+        # Testa se é instância
+        elif isinstance(metric, object):
+            history = train_unet(model, train_dataset, None, valid_dataset, None, batch_size, epochs, early_stopping_epochs, early_stopping_delta, 
+                             output_dir, best_model_filename, early_stopping=early_stopping, early_loss=early_loss, 
+                             metric_name=metric.__class__.__name__.lower(), lr_decay=lr_decay, train_with_dataset=True, custom_train=custom_train)
+            
+        # Testa se é função
+        elif isinstance(metric, (types.FunctionType, types.BuiltinFunctionType)):
+            history = train_unet(model, train_dataset, None, valid_dataset, None, batch_size, epochs, early_stopping_epochs, early_stopping_delta, 
+                             output_dir, best_model_filename, early_stopping=early_stopping, early_loss=early_loss, 
+                             metric_name=metric.__name__, lr_decay=lr_decay, train_with_dataset=True, custom_train=custom_train)  
+            
     else:
         # Testa se a métrica é string
         if isinstance(metric, str):

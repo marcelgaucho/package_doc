@@ -1049,8 +1049,8 @@ def avalia_modelo(input_dir: str, y_dir: str, output_dir: str, metric_name = 'F1
         # n_test_tiles = 49 # Número de tiles de teste
     
         # Pasta com os tiles de teste para pegar informações de georreferência
-        #test_labels_tiles_dir = r'dataset_massachusetts_mnih/test/maps'
-        test_labels_tiles_dir = r'tiles/masks/2018/test'
+        test_labels_tiles_dir = r'dataset_massachusetts_mnih_mod/test/maps'
+        # test_labels_tiles_dir = r'tiles/masks/2018/test'
         labels_paths = [os.path.join(test_labels_tiles_dir, arq) for arq in os.listdir(test_labels_tiles_dir)]
         labels_paths.sort()
     
@@ -2545,12 +2545,11 @@ def avalia_transfer_learning_segformer(input_dir, y_dir, output_dir, model_check
         for dist in dist_buffers:
             with open(output_dir + f'relaxed_metrics_{dist}px.txt', 'a') as f:
                 relaxed_precision_train[dist], relaxed_recall_train[dist], relaxed_f1score_train[dist] = compute_relaxed_metrics(y_train, 
-                                                                                                                                     pred_train, buffers_y_train[dist],
-                                                                                                                                     buffers_pred_train[dist], 
-                                                                                                                                     nome_conjunto = 'Treino', 
-                                                                                                                                     print_file=f)        
-           
-    
+                                                                                                                                 pred_train, buffers_y_train[dist],
+                                                                                                                                 buffers_pred_train[dist], 
+                                                                                                                                 nome_conjunto = 'Treino', 
+                                                                                                                                 print_file=f)
+                
         # Release Memory
         x_train = None
         y_train = None
