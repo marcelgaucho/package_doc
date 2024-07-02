@@ -12,12 +12,12 @@ from tensorflow.keras.models import Model
 
 from .unetr_2d import config_dict, build_unetr_2d
 
-from .segformer_tf_k2.models import SegFormer_B0
-from .segformer_tf_k2.models import SegFormer_B1
-from .segformer_tf_k2.models import SegFormer_B2
-from .segformer_tf_k2.models import SegFormer_B3
-from .segformer_tf_k2.models import SegFormer_B4
-from .segformer_tf_k2.models import SegFormer_B5
+from .segformer_tf_k3.models import SegFormer_B0
+from .segformer_tf_k3.models import SegFormer_B1
+from .segformer_tf_k3.models import SegFormer_B2
+from .segformer_tf_k3.models import SegFormer_B3
+from .segformer_tf_k3.models import SegFormer_B4
+from .segformer_tf_k3.models import SegFormer_B5
 # Res-UNet
 
 def batchnorm_relu(inputs):
@@ -351,7 +351,7 @@ def build_model(input_shape, n_classes, model_type='unet'):
     elif model_type == 'resunet chamorro pos curta':
          return build_resunet_chamorro_semdropout_curta(input_shape, (64, 128, 256), n_classes)
      
-    elif model_type == 'unet transformer':
+    elif model_type == 'unetr':
         return build_unetr_2d(input_shape, config_dict)
     
     elif model_type == 'segformer_b0':
@@ -374,4 +374,4 @@ def build_model(input_shape, n_classes, model_type='unet'):
     
     else:
         raise Exception("Model options are 'unet' and 'resunet' and 'resunet chamorro' and 'corred' and "
-                        "'resunet chamorro pos' and 'resunet chamorro pos curta' and 'unet transformer'")
+                        "'resunet chamorro pos' and 'resunet chamorro pos curta' and 'unetr'")

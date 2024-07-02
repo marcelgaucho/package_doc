@@ -5,21 +5,15 @@ Created on Fri Nov 18 17:45:22 2022
 @author: marcel.rotunno
 """
 
-from osgeo import gdal, gdal_array
+from osgeo import gdal
 import numpy as np
 import os, shutil
-import math
 import tensorflow as tf
 import pickle
-import time
-import types
 import gc
 from pathlib import Path
 
-from tensorflow.keras.layers import Input, concatenate, Conv2D, BatchNormalization, Activation 
-from tensorflow.keras.layers import MaxPool2D, Conv2DTranspose, UpSampling2D, Concatenate
-from tensorflow.keras.layers import Dropout, Add
-from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.metrics import Metric
 # from tensorflow.keras.losses import CategoricalFocalCrossentropy
@@ -49,7 +43,27 @@ from tensorflow.keras.optimizers import Adam, SGD
 
 import matplotlib.pyplot as plt
 
-from .treinamento.functions_train import treina_modelo
+from .treinamento.functions_train import treina_modelo, show_graph_loss_accuracy
+
+
+def onehot_numpy(np_array):
+    '''
+    Parameters
+    ----------
+    np_array : numpy.ndarray
+        Array of labels that Must not contain channels dimension.
+        Values must be integers between 0 and n-1, to encode n classes.
+
+    Returns
+    -------
+    np_array_onehot : numpy.ndarray
+        Output will contain channel-last dimension with 
+        length equal to number of classes.
+
+    '''
+    n_values = np.max(np_array) + 1
+    np_array_onehot = np.eye(n_values, dtype=np.uint8)[np_array]
+    return np_array_onehot
 
 
 def salva_arrays(folder, **kwargs):
@@ -133,36 +147,6 @@ def compute_relaxed_metrics(y: np.ndarray, pred: np.ndarray, buffer_y: np.ndarra
     
     return relaxed_precision, relaxed_recall, relaxed_f1score
 
-
-# Função que mostra gráfico
-def show_graph_loss_accuracy(history, accuracy_position, metric_name = 'accuracy', save=False, save_path=r'', save_name='plotagem.png'):
-    plt.rcParams['axes.facecolor']='white'
-    plt.figure(num=1, figsize=(14,6))
-
-    config = [ { 'title': 'model %s' % (metric_name), 'ylabel': '%s' % (metric_name), 'legend_position': 'upper left', 'index_position': accuracy_position },
-               { 'title': 'model loss', 'ylabel': 'loss', 'legend_position': 'upper right', 'index_position': 0 } ]
-
-    for i in range(len(config)):
-        
-        plot_number = 120 + (i+1)
-        plt.subplot(plot_number)
-        plt.plot(history[0,:,0, config[i]['index_position']])
-        plt.plot(history[1,:,0, config[i]['index_position']])
-        plt.title(config[i]['title'])
-        plt.ylabel(config[i]['ylabel'])
-        plt.xlabel('epoch')
-        plt.legend(['train', 'valid'], loc=config[i]['legend_position'])
-        plt.tight_layout()
-        
-    if save:
-        plt.savefig(save_path + save_name)
-        plt.close()
-    else:
-        plt.show(block=False)
-    
-
-    
-    
 
 # Calcula os limites em x e y do patch, para ser usado no caso de um patch de borda
 def calculate_xp_yp_limits(p_size, x, y, xmax, ymax, left_half, up_half, right_shift, down_shift):
@@ -794,7 +778,7 @@ def avalia_modelo(input_dir: str, y_dir: str, output_dir: str, metric_name = 'F1
         history = pickle.load(fp)
     
     # Mostra histórico em gráfico
-    show_graph_loss_accuracy(np.asarray(history), 1, metric_name = metric_name, save=True, save_path=output_dir)
+    show_graph_loss_accuracy(history, metric_name = metric_name, save=True, save_path=output_dir)
 
     # Load model
     model = load_model(output_dir + best_model_filename + '.keras', compile=False, custom_objects={"Patches": Patches, 
@@ -1286,7 +1270,7 @@ def avalia_modelo_ensemble(input_dir: str, output_dir: str, metric_name = 'F1-Sc
             history = pickle.load(fp)
             
         # Show and save history
-        show_graph_loss_accuracy(np.asarray(history), 1, metric_name = metric_name, save=True, save_path=output_dir,
+        show_graph_loss_accuracy(history, metric_name = metric_name, save=True, save_path=output_dir,
                                  save_name='plotagem' + '_' + str(i+1) + '.png')
     
     # Load model
@@ -2461,7 +2445,7 @@ def avalia_transfer_learning_segformer(input_dir, y_dir, output_dir, model_check
         history = pickle.load(fp)
     
     # Mostra histórico em gráfico
-    show_graph_loss_accuracy(np.asarray(history), 1, metric_name = metric_name, save=True, save_path=output_dir)
+    show_graph_loss_accuracy(history, metric_name = metric_name, save=True, save_path=output_dir)
 
     # Load Model
     id2label = {0: "background", 1: "road"}

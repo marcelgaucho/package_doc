@@ -29,10 +29,10 @@ NUM_CHANNELS = 3
 PATCH_SIZE = 16 # Isso seria equivalente a um subpatch (talvez o tamanho de um filtro em uma CNN?)
 NUM_PATCHES = (IMG_SIZE//PATCH_SIZE) ** 2
 
-HIDDEN_DIM = 768 # Dimensão do Embedding  
+HIDDEN_DIM = 128 # Dimensão do Embedding  
 NUM_LAYERS = 12 # Número de Layers (Encoders) no Transformer
-NUM_HEADS = 12 # Número de Cabeças para Atenção MultiCabeça
-MLP_DIM = 3072 # Dimensão da rede MLP no final da arquitetura
+NUM_HEADS = 8 # Número de Cabeças para Atenção MultiCabeça
+MLP_DIM = 256 # Dimensão da rede MLP no final da arquitetura
 DROPOUT = 0.1 # Taxa de Dropout no MLP do Transformer
 MAX_FILTERS = 512 # Maximum number of filter in the Decoder
 

@@ -37,27 +37,72 @@ import matplotlib.pyplot as plt
 
 
 # Função que mostra gráfico
-def show_graph_loss_accuracy(history, accuracy_position, metric_name = 'accuracy', save=False, save_path=r'', save_name='plotagem.png'):
-    plt.rcParams['axes.facecolor']='white'
-    plt.figure(num=1, figsize=(14,6))
-
-    config = [ { 'title': 'model %s' % (metric_name), 'ylabel': '%s' % (metric_name), 'legend_position': 'upper left', 'index_position': accuracy_position },
-               { 'title': 'model loss', 'ylabel': 'loss', 'legend_position': 'upper right', 'index_position': 0 } ]
-
-    for i in range(len(config)):
-        
-        plot_number = 120 + (i+1)
-        plt.subplot(plot_number)
-        plt.plot(history[0,:,0, config[i]['index_position']])
-        plt.plot(history[1,:,0, config[i]['index_position']])
-        plt.title(config[i]['title'])
-        plt.ylabel(config[i]['ylabel'])
-        plt.xlabel('epoch')
-        plt.legend(['train', 'valid'], loc=config[i]['legend_position'])
-        plt.tight_layout()
-        
+def show_graph_loss_accuracy(history, metric_name = 'accuracy', save=False, save_path=r'', save_name='plotagem.png'):
+    # Prepare to new function
+    history_train = {}
+    history_train['loss'] = list(np.array(history[0]).squeeze()[:, 0])
+    history_train['f1'] = list(np.array(history[0]).squeeze()[:, 1])
+    history_valid = {}
+    history_valid['loss'] = list(np.array(history[1]).squeeze()[:, 0])
+    history_valid['f1'] = list(np.array(history[1]).squeeze()[:, 1])
+    
+    # Training epochs and steps in x ticks
+    total_epochs_training = len(history_train['loss'])
+    x_ticks_step = 5
+    
+    # Create Figure
+    plt.figure(figsize=(15,6))
+    
+    # There are 2 subplots in a row
+    
+    # X and X ticks for all subplots
+    x = list(range(1, total_epochs_training+1)) # Could be length of other parameter too
+    x_ticks = list(range(0, total_epochs_training+x_ticks_step, x_ticks_step))
+    x_ticks.insert(1, 1)
+    
+    # First subplot (Metric)
+    plt.subplot(1, 2, 1)
+    
+    plt.title(f'{metric_name} per Epoch', fontdict={'fontname': 'Comic Sans MS', 'fontsize': 19}) # Title, with font name and size
+    
+    plt.xlabel('Epochs', fontdict={'fontname': 'Comic Sans MS', 'fontsize': 17}) # Label of X axis, with font
+    plt.ylabel(f'{metric_name}', fontdict={'fontname': 'Comic Sans MS', 'fontsize': 17}) # Label of X axis, with font
+    
+    plt.plot(x, history_train['f1']) # Plot Train Metric
+    plt.plot(x, history_valid['f1']) # Plot Valid Metric
+    
+    plt.ylim(bottom=0, top=1) # Set y=0 on horizontal axis, and for maximum y=1
+    plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1]) # Set y ticks
+    plt.xticks(x_ticks) # Set x ticks
+    
+    plt.legend(['Train', 'Valid'], loc='upper left', fontsize=12) # Legend, with position and fontsize
+    plt.grid(True) # Create grid
+    
+    # Second subplot (Loss)
+    plt.subplot(1, 2, 2)
+    
+    plt.title('Loss per Epoch', fontdict={'fontname': 'Comic Sans MS', 'fontsize': 19})
+     
+    plt.xlabel('Epochs', fontdict={'fontname': 'Comic Sans MS', 'fontsize': 17}) 
+    plt.ylabel('Loss', fontdict={'fontname': 'Comic Sans MS', 'fontsize': 17}) 
+    
+    plt.plot(x, history_train['loss'])
+    plt.plot(x, history_valid['loss'])
+    
+    
+    plt.ylim(bottom=0, top=1) 
+    plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    plt.xticks(x_ticks)
+    
+    plt.legend(['Train', 'Valid'], loc='upper right', fontsize=12)
+    plt.grid(True) 
+    
+    # Adjust layout
+    plt.tight_layout()
+    
+    # Show or save plot
     if save:
-        plt.savefig(save_path + save_name)
+        plt.savefig(save_path+save_name)
         plt.close()
     else:
         plt.show(block=False)
@@ -92,6 +137,19 @@ def test_step(x, y, model, loss_fn, metrics_val):
         
     return loss_value
 
+@tf.function
+def vectorized_map(map_augment_function, tuple_x_y):
+    return tf.vectorized_map(map_augment_function, tuple_x_y)
+
+# @tf.function
+# def vectorized_map(map_augment_function, tuple_x_y):
+#     return tf.map_fn(map_augment_function, tuple_x_y)
+
+# @tf.function
+# def vectorized_map(map_augment_function, x, y):
+#     list_transform =  list(map(map_augment_function, x, y))
+#     return tf.stack([l0[0] for l0 in list_transform]), tf.stack([l1[1] for l1 in list_transform])
+
 
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
@@ -113,14 +171,14 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     # Contagem de épocas sem melhora em valid_metric_best_model
     no_improvement_count = 0
     
-    # Inicia loss acumulada no treino e validação
-    train_loss = 0
-    valid_loss = 0
-    
     # Executa treinamento
     for epoch in range(epochs):
         print("\nStart of epoch %d" % (epoch))
         start_time = time.time()
+        
+        # Inicia loss acumulada da época no treino e validação
+        train_loss = 0
+        valid_loss = 0
         
         # Percorre batches do dataset
         for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
@@ -129,15 +187,33 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 x_batches_train_augmented = []
                 y_batches_train_augmented = []
                 for _ in range(augment_batch_factor-1):
-                    x_batch_train_augmented, y_batch_train_augmented = tf.map_fn(transform_augment, (x_batch_train, y_batch_train))
+                    '''
+                    # Time compare
+                    time_map_fn_start = time.time()
+                    x_batch_train_augmented, y_batch_train_augmented = tf.map_fn(transform_augment, (x_batch_train, y_batch_train)) 
+                    print("Time taken with tf.map_fn: %.2fs" % (time.time() - time_map_fn_start))
+                    
+                    time_vectorized_map_start = time.time()
+                    x_batch_train_augmented, y_batch_train_augmented = tf.vectorized_map(transform_augment, (x_batch_train, y_batch_train))
+                    print("Time taken with tf.vectorized_map: %.2fs" % (time.time() - time_vectorized_map_start))
+                    
+                    time_map_python = time.time()
+                    list_transform = list(map(transform_augment_2arg, x_batch_train, y_batch_train))
+                    x_batch_train_augmented, y_batch_train_augmented = tf.stack([l0[0] for l0 in list_transform]), \
+                                                                       tf.stack([l1[1] for l1 in list_transform])
+                    print("Time taken with map in Python: %.2fs" % (time.time() - time_map_python))
+                    
+                    time_vectorized_map_tffunction = time.time()
+                    x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment, (x_batch_train, y_batch_train))
+                    print("Time taken with tf.vectorized_map embedded in a function decorated with @tf.function: %.2fs" % (time.time() - time_vectorized_map_tffunction))
+                    '''
+                    x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment, (x_batch_train, y_batch_train))
                     x_batches_train_augmented.append(x_batch_train_augmented)
                     y_batches_train_augmented.append(y_batch_train_augmented)
                     
                 # Concatenate original batch with new "batches"
                 x_batch_train = tf.concat([x_batch_train] + x_batches_train_augmented, axis=0) 
                 y_batch_train = tf.concat([y_batch_train] + y_batches_train_augmented, axis=0)                    
-                # x_batch_train_augmented, y_batch_train_augmented = tf.vectorized_map(transform_augment, ((x_batch_train, y_batch_train)))
-                # augmented_batch = list(map(transform_augment_2arg, x_batch_train, y_batch_train))
                 
                 # Delete computed variables
                 del x_batch_train_augmented, y_batch_train_augmented, x_batches_train_augmented[:], y_batches_train_augmented[:]
@@ -712,7 +788,7 @@ def transform_augment(x_y):
 
 def transform_augment_2arg(x, y):
     # Sorteia opção
-    lista_opcoes = [0, 1, 2, 3, 4, 5, 6, 7]
+    lista_opcoes = [1, 2, 3, 4, 5, 6, 7]
     opcao = random.choice(lista_opcoes)
     
     # Decide opção
@@ -1102,7 +1178,7 @@ def treina_modelo(input_dir: str, y_dir: str, output_dir: str, model_type: str =
         pickle.dump(history, fp)
         
     # Mostra histórico em gráfico
-    show_graph_loss_accuracy(np.asarray(history), 1, metric_name='F1-Score', save=True, save_path=output_dir)
+    show_graph_loss_accuracy(history, metric_name='F1-Score', save=True, save_path=output_dir)
     
     # Escreve hiperparâmetreos e modelo usados no Diretório
     with open(os.path.join(output_dir, 'model_configuration_used.txt'), 'w') as f:
@@ -1120,13 +1196,15 @@ def treina_modelo(input_dir: str, y_dir: str, output_dir: str, model_type: str =
 class ModelTrainer:
     best_model_filename = 'best_model.keras'
     early_stopping_delta = 0.01 # Delta in relation to best result for training to continue 
-    def __init__(self, x_dir: str, y_dir: str, output_dir: str, model):
+    def __init__(self, x_dir: str, y_dir: str, output_dir: str, model, optimizer):
         # Directories
         self.x_dir = x_dir # Dir with X data
         self.y_dir = y_dir # Dir with Y data
         self.output_dir = output_dir # Dir to save Output data
         
         self.model = model # Model object
+        
+        self.optimizer = optimizer # Optimizer, has to be created outside class in order to be a singleton
         
         self.model_path = output_dir + self.best_model_filename # Path to save model
         
@@ -1171,7 +1249,7 @@ class ModelTrainer:
     def train_with_loop(self, epochs=2000, early_stopping_epochs=50, 
                         metrics_train=[F1Score(), Precision(class_id=1), Recall(class_id=1)],
                         metrics_val=[F1Score(), Precision(class_id=1), Recall(class_id=1)],
-                        learning_rate=0.001, optimizer=Adam(), loss_fn=CategoricalCrossentropy(from_logits=False),
+                        learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
                         early_stopping_on_metric=True,
                         augment_batch_factor=2):
@@ -1182,6 +1260,9 @@ class ModelTrainer:
         # Dictionary of parameters used when method is invoked
         dict_parameters = locals().copy()
         del dict_parameters['self']
+        
+        # Clone model
+        model = tf.keras.models.clone_model(self.model)
         
         # Compute total time to train. Begin to count
         start = time.time()
@@ -1196,6 +1277,9 @@ class ModelTrainer:
         # Set datasets
         self._set_datasets()
         
+        # Optimizer and learning rate
+        optimizer = self.optimizer
+        optimizer.build(model.trainable_variables)
         optimizer.learning_rate.assign(learning_rate) # Assign learning rate to optimizer
         
         # By default, shuffle dataset by its length
@@ -1207,7 +1291,6 @@ class ModelTrainer:
             valid_dataset = self.valid_dataset.shuffle(buffer_shuffle).batch(batch_size)
             
         # Run loop of train
-        model = tf.keras.models.clone_model(self.model)
         result_history = train_model_loop(model=model, epochs=epochs, early_stopping_epochs=early_stopping_epochs,
                                   train_dataset=train_dataset, valid_dataset=valid_dataset,
                                   optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
@@ -1225,7 +1308,7 @@ class ModelTrainer:
         with open(os.path.join(self.output_dir, 'history_best_model.txt'), 'w') as f:
             f.write('Resultado = \n')
             f.write(str(result_history))
-            f.write(f'\nTempo total gasto no treinamento foi de {end-start} segundos')
+            f.write(f'\nTempo total gasto no treinamento foi de {end-start} segundos, {(end-start)/3600:.1f} horas.')
             
         with open(os.path.join(self.output_dir, 'history_pickle_best_model.pickle'), "wb") as fp: 
             pickle.dump(result_history, fp)
@@ -1240,7 +1323,7 @@ class ModelTrainer:
             metric_name = metric0.__name__ 
             
         # Save output in plot
-        show_graph_loss_accuracy(np.asarray(result_history), 1, metric_name=metric_name, save=True, save_path=self.output_dir)
+        show_graph_loss_accuracy(result_history, metric_name=metric_name, save=True, save_path=self.output_dir)
         
         # Write model summary of model used in text file and list of arguments to the method
         with open(os.path.join(self.output_dir, 'model_configuration_used.txt'), 'w') as f:
@@ -1251,7 +1334,7 @@ class ModelTrainer:
     
     def train_with_fit(self, epochs=2000, early_stopping_epochs=50, 
                        metrics=[F1Score(), Precision(class_id=1), Recall(class_id=1)],
-                       learning_rate=0.001, optimizer=Adam(), loss_fn=CategoricalCrossentropy(from_logits=False),
+                       learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                        buffer_shuffle=None, batch_size=16, use_dataset=True, convert_to_tensor_if_numpy=False,
                        data_augmentation=False, early_stopping_on_metric=True,  
                        n_repeat=None, 
@@ -1262,6 +1345,9 @@ class ModelTrainer:
         # Dictionary of parameters used when method is invoked
         dict_parameters = locals().copy()
         del dict_parameters['self']
+        
+        # Clone model
+        model = tf.keras.models.clone_model(self.model)
         
         # Compute total time to train. Begin to count
         start = time.time()
@@ -1292,9 +1378,6 @@ class ModelTrainer:
         else:
             self._set_numpy_arrays(convert_to_tensor=convert_to_tensor_if_numpy)
             
-        # CLone model
-        model = tf.keras.models.clone_model(self.model)
-        
         # Tensorboard callback
         if tensorboard_log:
             log_dir = os.path.join(self.output_dir, 'logs', 'fit') #, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -1378,6 +1461,14 @@ class ModelTrainer:
                     callbacks = [early_stop, cp_callback]
                 else:
                     callbacks = [cp_callback]
+
+        # Optimizer and learning rate
+        optimizer = self.optimizer
+        optimizer.build(model.trainable_variables)
+        optimizer.learning_rate.assign(learning_rate) # Assign learning rate to optimizer
+            
+        # Compile model
+        model.compile(loss=loss_fn, optimizer=optimizer, metrics=metrics)
                     
         # Train Model
         if use_dataset:
@@ -1410,13 +1501,13 @@ class ModelTrainer:
         with open(os.path.join(self.output_dir, 'history_best_model.txt'), 'w') as f:
             f.write('Resultado = \n')
             f.write(str(result_history))
-            f.write(f'\nTempo total gasto no treinamento foi de {end-start} segundos')
+            f.write(f'\nTempo total gasto no treinamento foi de {end-start} segundos, {(end-start)/3600:.1f} horas.')
             
         with open(os.path.join(self.output_dir, 'history_pickle_best_model.pickle'), "wb") as fp: 
             pickle.dump(result_history, fp)
             
         # Save output in plot
-        show_graph_loss_accuracy(np.asarray(result_history), 1, metric_name=metric_name, save=True, save_path=self.output_dir)
+        show_graph_loss_accuracy(result_history, metric_name=metric_name, save=True, save_path=self.output_dir)
         
         # Write model summary of model used in text file and list of arguments to the method
         with open(os.path.join(self.output_dir, 'model_configuration_used.txt'), 'w') as f:
@@ -1536,7 +1627,7 @@ def transfer_learning_segformer(input_dir, y_dir, output_dir, model_checkpoint, 
         pickle.dump(history, fp)
         
     # Mostra histórico em gráfico
-    show_graph_loss_accuracy(np.asarray(history), 1, metric_name='F1-Score', save=True, save_path=output_dir)
+    show_graph_loss_accuracy(history, metric_name='F1-Score', save=True, save_path=output_dir)
     
     # Escreve hiperparâmetreos e modelo usados no Diretório
     with open(os.path.join(output_dir, 'model_configuration_used.txt'), 'w') as f:
