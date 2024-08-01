@@ -332,7 +332,7 @@ def build_model_corred(input_shape, n_classes):
 
         
 # Build UNet or Res-UNet or CorrED
-def build_model(input_shape, n_classes, model_type='unet'):
+def build_model(input_shape, n_classes, model_type='unet', config_dict=None):
     if model_type == 'unet':
         return build_model_unet(input_shape, n_classes)
     

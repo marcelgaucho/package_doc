@@ -105,8 +105,8 @@ def deconv_block(x, num_filters, strides=2):
 # %%
 
 class Patches(layers.Layer):
-    def __init__(self, patch_size):
-        super(Patches, self).__init__()
+    def __init__(self, patch_size, **kwargs):
+        super(Patches, self).__init__(**kwargs)
         self.patch_size = patch_size
 
     def call(self, images):
