@@ -15,6 +15,7 @@ from pathlib import Path
 import pdb
 
 # %% Limita Memória usada pela GPU ou limita threads caso não haja GPU
+
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 gpus = tf.config.list_physical_devices('GPU')
 

@@ -350,7 +350,18 @@ class ModelTrainer:
         
 
 
-
+def treina_com_subpatches(filenames_train_list, filenames_valid_list, filenames_test_list, model_dir):
+    # Treina modelos
+    for (name_train, name_valid, name_test) in zip(filenames_train_list, filenames_valid_list, filenames_test_list):
+        # Move arquivo para diretório de modelos
+        shutil.copy(name_train, model_dir + 'x_train.npy')
+        shutil.copy(name_valid, model_dir + 'x_valid.npy')
+        shutil.copy(name_test, model_dir + 'x_test.npy')
+        
+        # Treina modelo com os dados
+        output_dir = os.path.dirname(name_train)
+        treina_modelo(model_dir, output_dir, epochs=1000, early_loss=False, model_type='resunet',
+                      loss='cross', lr_decay=True)
 
 
         

@@ -10,7 +10,24 @@ import math, os, shutil
 from sklearn.preprocessing import MinMaxScaler
 
 
+def onehot_numpy(np_array):
+    '''
+    Parameters
+    ----------
+    np_array : numpy.ndarray
+        Array of labels that Must not contain channels dimension.
+        Values must be integers between 0 and n-1, to encode n classes.
 
+    Returns
+    -------
+    np_array_onehot : numpy.ndarray
+        Output will contain channel-last dimension with 
+        length equal to number of classes.
+
+    '''
+    n_values = np.max(np_array) + 1
+    np_array_onehot = np.eye(n_values, dtype=np.uint8)[np_array]
+    return np_array_onehot
             
 
 def load_tiff_image(image):
