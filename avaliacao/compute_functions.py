@@ -754,8 +754,8 @@ def gera_dados_segunda_rede(input_dir, y_dir, output_dir, etapa=2):
     gc.collect()
     
     
-    
-def stack_uneven(arrays, fill_value=0.):
+# Source: https://stackoverflow.com/questions/44951624/numpy-stack-with-unequal-shapes
+def stack_uneven(arrays, fill_value=0):
     '''
     Fits arrays into a single numpy array, even if they are
     different sizes. `fill_value` is the default value.
@@ -771,7 +771,7 @@ def stack_uneven(arrays, fill_value=0.):
     sizes = [a.shape for a in arrays]
     max_sizes = np.max(list(zip(*sizes)), -1)
     # The resultant array has stacked on the first dimension
-    result = np.full((len(arrays),) + tuple(max_sizes), fill_value)
+    result = np.full((len(arrays),) + tuple(max_sizes), fill_value, dtype=arrays[0].dtype)
     for i, a in enumerate(arrays):
       # The shape of this array `a`, turned into slices
       slices = tuple(slice(0,s) for s in sizes[i])

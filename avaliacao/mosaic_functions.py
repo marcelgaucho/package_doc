@@ -8,6 +8,8 @@ Created on Thu Aug  1 21:44:56 2024
 import numpy as np
 import os
 from .save_functions import save_raster_reference
+from .compute_functions import stack_uneven
+from pathlib import Path
 
 # Calcula os limites em x e y do patch, para ser usado no caso de um patch de borda
 def calculate_xp_yp_limits(p_size, x, y, xmax, ymax, left_half, up_half, right_shift, down_shift):
@@ -61,7 +63,7 @@ def calculate_xp_yp_limits(p_size, x, y, xmax, ymax, left_half, up_half, right_s
     return xp_limit, yp_limit
 
 # Cria o mosaico a partir dos batches extraídos da Imagem de Teste
-def unpatch_reference(reference_batches, stride, reference_shape, border_patches=False):
+def unpatch_reference(reference_batches, stride, reference_shape, border_patches=False, dtype=None):
     '''
     Function: unpatch_reference
     -------------------------
@@ -114,7 +116,12 @@ def unpatch_reference(reference_batches, stride, reference_shape, border_patches
     # Cria mosaico que será usado para escrever saída
     # Mosaico tem mesmas dimensões da referência usada para extração 
     # dos patches
-    pred_test_mosaic = np.zeros(reference_shape)  
+    # Cria por padrão mosaico com mesmo tipo dos patches usados para construção
+    # Se informado, cria array do tipo especificado
+    if dtype:
+        pred_test_mosaic = np.zeros(reference_shape, dtype=dtype)
+    else:
+        pred_test_mosaic = np.zeros(reference_shape, dtype=reference_batches.dtype)
 
     # Dimensões máximas na vertical e horizontal
     ymax, xmax = pred_test_mosaic.shape
@@ -272,12 +279,78 @@ def gera_mosaicos(output_dir, pred_array, labels_paths, prefix='outmosaic', patc
         out_mosaic_name = prefix + '_' + filename_wo_ext + r'.tif'
         out_mosaic_path = os.path.join(output_dir, out_mosaic_name)
         
-        if is_float:
-            save_raster_reference(labels_path, out_mosaic_path, pred_test_mosaic, is_float=True)
-        else:
-            save_raster_reference(labels_path, out_mosaic_path, pred_test_mosaic, is_float=False)
-    
+        # if is_float:
+        #     save_raster_reference(labels_path, out_mosaic_path, pred_test_mosaic, is_float=True)
+        # else:
+        #     save_raster_reference(labels_path, out_mosaic_path, pred_test_mosaic, is_float=False)
+        save_raster_reference(labels_path, out_mosaic_path, pred_test_mosaic)
             
             
     # Retorna lista de mosaicos
     return pred_test_mosaic_list
+
+
+
+class MosaicGenerator:
+    def __init__(self, test_array, info_tiles, tiles_dir, output_dir):
+        self.test_array = test_array
+        
+        self.length_tiles = info_tiles['len_tiles_test']
+        self.shape_tiles = info_tiles['shape_tiles_test']
+        self.stride = info_tiles['patch_stride_test']
+        
+        self.tiles_dir = tiles_dir
+        
+        self.output_dir = output_dir
+        
+    def _set_labels_paths(self):
+        self.labels_paths = [str(path) for path in Path(self.tiles_dir).iterdir() 
+                             if path.suffix=='.tiff' or path.suffix=='.tif']
+        self.labels_paths.sort()
+        
+    def build_mosaics(self):
+        # Total number of mosaics
+        n_mosaics = len(self.shape_tiles)
+        
+        # Index where mosaic begins
+        i_tile_start = 0
+        
+        # List with the predicted mosaics
+        pred_mosaics = []
+        
+        # Build mosaics
+        for i_mosaic in range(n_mosaics):
+            print(f'Building Mosaic {i_mosaic+1:>5d}/{n_mosaics:>5d}')
+            
+            patches_mosaic = self.test_array[i_tile_start:i_tile_start+self.length_tiles[i_mosaic],
+                                            :, :, 0]
+            
+            pred_mosaic = unpatch_reference(reference_batches=patches_mosaic, 
+                                            stride=self.stride, 
+                                            reference_shape=self.shape_tiles[i_mosaic],
+                                            border_patches=True)
+            
+            pred_mosaics.append(pred_mosaic)
+            
+            i_tile_start += self.length_tiles[i_mosaic] # Update index where tile starts
+            
+        self.pred_mosaics = pred_mosaics
+            
+        return pred_mosaics
+    
+    def save_mosaics(self):
+        pred_mosaics = stack_uneven(self.pred_mosaics)[..., np.newaxis] # Transform mosaics list to array
+        
+        np.save(Path(self.output_dir)/'pred_mosaics.npy', pred_mosaics)
+        
+    def export_mosaics(self, prefix='outmosaic'):
+        self._set_labels_paths() # Set list of paths of reference tiles
+        
+        # Export predictions mosaics
+        for mosaic, label_path in zip(self.pred_mosaics, self.labels_paths):
+            outmosaic_basename = prefix + '_' + Path(label_path).stem + '.tif'
+            outmosaic_path = str(Path(self.output_dir)/outmosaic_basename)
+
+            save_raster_reference(in_raster_path=label_path,
+                                  out_raster_path=outmosaic_path, 
+                                  array_exported=mosaic)

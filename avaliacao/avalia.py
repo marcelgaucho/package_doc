@@ -321,7 +321,7 @@ def avalia_modelo(input_dir: str, y_dir: str, output_dir: str, metric_name = 'F1
         pred_mosaics = gera_mosaicos(output_dir, pred_test, labels_paths, 
                                      patch_test_stride=patch_test_stride,
                                      labels_test_shape=labels_test_shape,
-                                     len_tiles_test=len_tiles_test, is_float=False)
+                                     len_tiles_test=len_tiles_test)
     
         # Lista e Array dos Mosaicos de Referência
         y_mosaics = [gdal.Open(y_mosaic_path).ReadAsArray() for y_mosaic_path in labels_paths]
@@ -808,7 +808,7 @@ def avalia_modelo_ensemble(input_dir: str, output_dir: str, metric_name = 'F1-Sc
     pred_test_mosaic_list = gera_mosaicos(output_dir, pred_test, labels_paths, 
                                           patch_test_stride=patch_test_stride,
                                           labels_test_shape=labels_test_shape,
-                                          n_test_tiles=n_test_tiles, is_float=False)
+                                          n_test_tiles=n_test_tiles)
     
     
     # Lista e Array dos Mosaicos de Referência
@@ -1185,7 +1185,7 @@ def avalia_transfer_learning_segformer(input_dir, y_dir, output_dir, model_check
         pred_mosaics = gera_mosaicos(output_dir, pred_test, labels_paths, 
                                      patch_test_stride=patch_test_stride,
                                      labels_test_shape=labels_test_shape,
-                                     len_tiles_test=len_tiles_test, is_float=False)
+                                     len_tiles_test=len_tiles_test)
     
         # Lista e Array dos Mosaicos de Referência
         y_mosaics = [gdal.Open(y_mosaic_path).ReadAsArray() for y_mosaic_path in labels_paths]
