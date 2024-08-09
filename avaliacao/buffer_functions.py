@@ -6,6 +6,8 @@ Created on Thu Aug  1 21:36:26 2024
 """
 from osgeo import gdal
 import numpy as np
+from skimage.morphology import disk
+from scipy.ndimage import binary_dilation
 
 # Faz um buffer em um array binário
 def array_buffer(array, dist_cells=3):
@@ -134,4 +136,27 @@ def buffer_patches(patch_test, dist_cells=3):
     # Concatenate result patches to form result
     result = np.concatenate(result, axis=0)
             
+    return result
+
+# Alternative function to buffer_patches
+def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=200):
+    patches = patches.squeeze(axis=3) # Squeeze patches in last dimension (channel dimension)
+    
+    assert len(patches.shape) == 3, 'Squeezed Patches must be in shape (B, H, W)'
+    
+    # Build structuring element
+    struct_elem = disk(radius_px)
+
+    size = len(patches) # Total number of patches 
+    result = [] # Result list
+    
+    for i, patch in enumerate(patches):
+        if i % print_interval == 0:
+            print(f'Buffering patch {i:>6d}/{size:>6d}')
+            
+        buffered_patch = binary_dilation(patch, struct_elem).astype(np.uint8)
+        result.append(buffered_patch)
+        
+    result = np.array(result)[..., np.newaxis] # Aggregate list and expand to shape (B, H, W, 1)
+    
     return result
