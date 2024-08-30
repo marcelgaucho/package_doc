@@ -140,9 +140,9 @@ def buffer_patches(patch_test, dist_cells=3):
 
 # Alternative function to buffer_patches
 def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=200):
-    patches = patches.squeeze(axis=3) # Squeeze patches in last dimension (channel dimension)
+    assert len(patches.shape) == 4 and patches.shape[-1] == 1, 'Patches must be in shape (B, H, W, 1)'
     
-    assert len(patches.shape) == 3, 'Squeezed Patches must be in shape (B, H, W)'
+    patches = patches.squeeze(axis=3) # Squeeze patches in last dimension (channel dimension)
     
     # Build structuring element
     struct_elem = disk(radius_px)

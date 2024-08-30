@@ -25,6 +25,10 @@ def onehot_numpy(np_array):
         length equal to number of classes.
 
     '''
+    assert len(np_array.shape) == 4 and np_array.shape[-1] == 1, 'Patches must be in shape (B, H, W, 1)'
+    
+    np_array = np_array.squeeze(axis=3) # Squeeze patches in last dimension (channel dimension)
+    
     n_values = np.max(np_array) + 1
     np_array_onehot = np.eye(n_values, dtype=np.uint8)[np_array]
     return np_array_onehot

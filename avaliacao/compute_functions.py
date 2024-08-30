@@ -131,45 +131,52 @@ class RelaxedMetricCalculator:
         
         return self.metrics
     
-
-
-class TestRelaxedMetricCalculator(RelaxedMetricCalculator):
-    def export_results(self, output_dir):
+    def export_results(self, output_dir, group='test'):
+        # Check if group is correct
+        assert group in ('train', 'valid', 'test', 'mosaic'), "Parameter group must be 'train', 'valid', 'test' or 'mosaic'"
+        
         if not hasattr(self, 'metrics'):
             raise Exception("Metrics weren't calculated. First is necessary to "
                             "calculate metrics with the method calculate_metrics")
         
-        with open(output_dir + f'relaxed_metrics_test_{self.buffer_px}px.json', 'w') as f:
+        with open(output_dir + f'relaxed_metrics_{group}_{self.buffer_px}px.json', 'w') as f:
             json.dump(self.metrics, f)
-            
-            
-class ValidRelaxedMetricCalculator(RelaxedMetricCalculator):
-    def export_results(self, output_dir):
-        if not hasattr(self, 'metrics'):
-            raise Exception("Metrics weren't calculated. First is necessary to "
-                            "calculate metrics with the method calculate_metrics")
-        
-        with open(output_dir + f'relaxed_metrics_valid_{self.buffer_px}px.json', 'w') as f:
-            json.dump(self.metrics, f)
+    
 
 
-# Função que adiciona o Canal das probabilidades de 0 (fundo) para a Referência.
-# Isso porque a Referência vem com apenas um canal, que é o de Estradas, onde Estradas é 1 e o
-# restante é 0.
-# Isso se faz necessário para compilar o modelo com a métrica Recall
-def adiciona_prob_0(y_prob_1):
-    # Adiciona um Canal ao longo da última dimensão, ou -1, com Zeros para depois editar
-    # Esse canal vai ficar no canal 0, portanto antes do canal do array existente
-    # Por isso a forma de concatenação é concatenar o canal de 0s com o array existente 
-    zeros = np.zeros(y_prob_1.shape, dtype=np.uint8)
-    y_prob_1 = np.concatenate((zeros, y_prob_1), axis=-1)
+# =============================================================================
+# class TestRelaxedMetricCalculator(RelaxedMetricCalculator):
+#     def export_results(self, output_dir):
+#         if not hasattr(self, 'metrics'):
+#             raise Exception("Metrics weren't calculated. First is necessary to "
+#                             "calculate metrics with the method calculate_metrics")
+#         
+#         with open(output_dir + f'relaxed_metrics_test_{self.buffer_px}px.json', 'w') as f:
+#             json.dump(self.metrics, f)
+#             
+#             
+# class ValidRelaxedMetricCalculator(RelaxedMetricCalculator):
+#     def export_results(self, output_dir):
+#         if not hasattr(self, 'metrics'):
+#             raise Exception("Metrics weren't calculated. First is necessary to "
+#                             "calculate metrics with the method calculate_metrics")
+#         
+#         with open(output_dir + f'relaxed_metrics_valid_{self.buffer_px}px.json', 'w') as f:
+#             json.dump(self.metrics, f)
+# =============================================================================
+
+
+def adiciona_prob_0(prob_1):
+    ''' Add first channel (background) to a probability array with only road channel (prob_1) '''   
+    zeros = np.zeros(prob_1.shape, dtype=np.uint8)
+    prob_1 = np.concatenate((zeros, prob_1), axis=-1)
     
     # Percorre dimensão dos batches e adiciona imagens (arrays) que são o complemento
     # da probabilidade de estradas
-    for i in range(y_prob_1.shape[0]):
-        y_prob_1[i, :, :, 0] = 1 - y_prob_1[i, :, :, 1]
+    for i in range(prob_1.shape[0]):
+        prob_1[i, :, :, 0] = 1 - prob_1[i, :, :, 1]
         
-    return y_prob_1
+    return prob_1
 
 
 # Função para cálculo da entropia preditiva para um array de probabilidade com várias predições
