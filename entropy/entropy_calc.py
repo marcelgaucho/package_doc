@@ -28,15 +28,15 @@ class EntropyCalculator:
         # Copy and enumerate prob arrays in ascending order
         for i, folder in enumerate(sorted(output_dirs)):
             # Copy Prob Train if not exists
-            if not (Path(folder) / 'prob_train.npy').exists():
+            if not (Path(self.ensemble_dir) / 'prob_train_{i}.npy').exists():
                 shutil.copy(folder + 'prob_train.npy', self.ensemble_dir + f'prob_train_{i}.npy')
             
             # Copy Prob Valid if not exists
-            if not (Path(folder) / 'prob_valid.npy').exists():
+            if not (Path(self.ensemble_dir) / 'prob_valid_{i}.npy').exists():
                 shutil.copy(folder + 'prob_valid.npy', self.ensemble_dir + f'prob_valid_{i}.npy')
             
             # Copy Prob Test if not exists
-            if not (Path(folder) / 'prob_test.npy').exists():
+            if not (Path(self.ensemble_dir) / 'prob_test_{i}.npy').exists():
                 shutil.copy(folder + 'prob_test.npy', self.ensemble_dir + f'prob_test_{i}.npy')
             
         return True
