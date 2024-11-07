@@ -14,9 +14,9 @@ from osgeo import gdal
 import os
 import math
 import pickle
-from functions_extract import normalization
+from package_doc.extracao.functions_extract import normalization
 from functions_bib import salva_arrays
-from functions_extract import filtra_tiles_estradas, extract_patches_from_tiles
+from package_doc.extracao.functions_extract import filtra_tiles_estradas, extract_patches_from_tiles
 
 
                                     
