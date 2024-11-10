@@ -13,6 +13,7 @@ from icecream import ic
 import numpy as np
 import shutil
 import tensorflow as tf
+import json
 
 
 
@@ -64,6 +65,11 @@ class DirPatchExtractor:
         self.x_patches = None
         self.y_patches = None
         
+        # Extraction metadata
+        self.len_tiles = None
+        self.shape_tiles = None
+        self.stride_tiles = None
+        
     def extract_patches_from_tiles(self):        
         # Lists to store x and y patches and its metadata
         x_patches, y_patches  = [], []
@@ -105,6 +111,10 @@ class DirPatchExtractor:
         # Save inside object
         self.x_patches = x_patches
         self.y_patches = y_patches
+        
+        self.len_tiles = len_tiles
+        self.shape_tiles = shape_tiles
+        self.stride_tiles = stride_tiles
         
         return True    
 
@@ -200,8 +210,18 @@ class DirPatchExtractor:
         
         return True
     
-    def save_np_arrays(self, overwrite_arrays=False, group='train'):
-        assert group in ('train', 'valid', 'test'), "Parameter group must be 'train', 'valid' or 'test'"
+    def onehot_y_patches(self):
+        ''' One-hot y patches with the n classes numbered from 0 to n-1 in the array '''
+        assert len(self.y_patches.shape) == 4 and self.y_patches.shape[-1] == 1, 'Y Patches must be in shape (B, H, W, 1)'
+        
+        n_classes = np.max(self.y_patches) + 1 # number of classes
+        
+        self.y_patches = np.eye(n_classes, dtype=np.uint8)[self.y_patches.squeeze(axis=3)] 
+        
+        return True
+    
+    def save_np_arrays(self, overwrite_arrays=False):
+        assert self.group in ('train', 'valid', 'test'), "Parameter group must be 'train', 'valid' or 'test'"
         
         # Cast arrays to types to occupy few space
         x_patches = self.x_patches.astype(np.float16)
@@ -216,12 +236,13 @@ class DirPatchExtractor:
         np.save(x_path, x_patches)
         np.save(y_path, y_patches)
         
-    def save_tf_dataset(self, overwrite_dir=False, group='train'):
-        assert group in ('train', 'valid', 'test'), "Parameter group must be 'train', 'valid' or 'test'"
+    def save_tf_dataset(self, overwrite_dir=False):
+        assert self.group in ('train', 'valid', 'test'), "Parameter group must be 'train', 'valid' or 'test'"
 
         dataset_path = Path(self.out_x_dir) / f'{self.group}_dataset'
         if overwrite_dir:
-            shutil.rmtree(dataset_path)
+            if dataset_path.exists(): 
+                shutil.rmtree(dataset_path)
         dataset_path.mkdir()
         
         # Cast arrays to types to occupy few space
@@ -231,7 +252,20 @@ class DirPatchExtractor:
         dataset =  tf.data.Dataset.from_tensor_slices((x_patches, y_patches))
         dataset.save(str(dataset_path))            
         
-        return True        
+        return True   
+
+    def save_info_tiles(self, overwrite_info=False):
+        # Dict to export to JSON
+        info_tiles = {'len_tiles': self.len_tiles, 'shape_tiles': self.shape_tiles, 'stride_tiles': self.stride_tiles}
+        
+        info_tiles_path = Path(self.out_y_dir) / f'info_tiles_{self.group}.json'
+        
+        if info_tiles_path.exists() and overwrite_info==False:
+            raise Exception('Info file already exists')
+            
+        with open(info_tiles_path, mode='w', encoding='utf-8') as f:
+            json.dump(info_tiles, f, sort_keys=True, ensure_ascii=False, indent=4)
+        
     
     @staticmethod
     def load_tile(tile_path):
