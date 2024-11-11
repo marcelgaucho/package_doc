@@ -295,9 +295,9 @@ class MosaicGenerator:
     def __init__(self, test_array, info_tiles, tiles_dir, output_dir):
         self.test_array = test_array
         
-        self.length_tiles = info_tiles['len_tiles_test']
-        self.shape_tiles = info_tiles['shape_tiles_test']
-        self.stride = info_tiles['patch_stride_test']
+        self.len_tiles = info_tiles['len_tiles']
+        self.shape_tiles = info_tiles['shape_tiles']
+        self.stride_tiles = info_tiles['stride_tiles']
         
         self.tiles_dir = tiles_dir
         
@@ -322,17 +322,17 @@ class MosaicGenerator:
         for i_mosaic in range(n_mosaics):
             print(f'Building Mosaic {i_mosaic+1:>5d}/{n_mosaics:>5d}')
             
-            patches_mosaic = self.test_array[i_tile_start:i_tile_start+self.length_tiles[i_mosaic],
+            patches_mosaic = self.test_array[i_tile_start:i_tile_start+self.len_tiles[i_mosaic],
                                             :, :, 0]
             
             pred_mosaic = unpatch_reference(reference_batches=patches_mosaic, 
-                                            stride=self.stride, 
+                                            stride=self.stride_tiles[i_mosaic], 
                                             reference_shape=self.shape_tiles[i_mosaic],
                                             border_patches=True)
             
             pred_mosaics.append(pred_mosaic)
             
-            i_tile_start += self.length_tiles[i_mosaic] # Update index where tile starts
+            i_tile_start += self.len_tiles[i_mosaic] # Update index where tile starts
             
         self.pred_mosaics = pred_mosaics
             

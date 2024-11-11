@@ -21,7 +21,7 @@ import json
 
 class DirPatchExtractor:
     def __init__(self, in_x_dir: str, in_y_dir: str, out_x_dir: str, out_y_dir: str,
-                 patch_size=256, overlap=0.25, border_patches=False, reshape_array=False,
+                 patch_size=256, overlap=0.25, border_patches=False,
                  filter_nodata=False, nodata_value=(255, 255, 255), nodata_tolerance=0,
                  filter_object=False, object_value=1, threshold_percentage=1,
                  group='train'
@@ -36,13 +36,16 @@ class DirPatchExtractor:
         
         # Data for extraction
         self.patch_size = patch_size
-        self.overlap = overlap
+        
+        self.overlap = overlap        
         self.stride = self.patch_size - int(self.patch_size * self.overlap)
+        
         self.border_patches = border_patches
-        self.reshape_array = reshape_array
+        
         self.filter_nodata = filter_nodata
         self.nodata_value = nodata_value
         self.nodata_tolerance = nodata_tolerance
+        
         self.filter_object = filter_object
         self.object_value = object_value
         self.threshold_percentage = threshold_percentage
@@ -210,15 +213,15 @@ class DirPatchExtractor:
         
         return True
     
-    def onehot_y_patches(self):
+    def _onehot_y_patches(self):
         ''' One-hot y patches with the n classes numbered from 0 to n-1 in the array '''
         assert len(self.y_patches.shape) == 4 and self.y_patches.shape[-1] == 1, 'Y Patches must be in shape (B, H, W, 1)'
         
         n_classes = np.max(self.y_patches) + 1 # number of classes
         
-        self.y_patches = np.eye(n_classes, dtype=np.uint8)[self.y_patches.squeeze(axis=3)] 
+        y_patches = np.eye(n_classes, dtype=np.uint8)[self.y_patches.squeeze(axis=3)] 
         
-        return True
+        return y_patches
     
     def save_np_arrays(self, overwrite_arrays=False):
         assert self.group in ('train', 'valid', 'test'), "Parameter group must be 'train', 'valid' or 'test'"
@@ -236,19 +239,24 @@ class DirPatchExtractor:
         np.save(x_path, x_patches)
         np.save(y_path, y_patches)
         
-    def save_tf_dataset(self, overwrite_dir=False):
+    def save_tf_dataset(self, overwrite_dir=False, onehot_y_patches=True):
         assert self.group in ('train', 'valid', 'test'), "Parameter group must be 'train', 'valid' or 'test'"
 
+        # Create directory
         dataset_path = Path(self.out_x_dir) / f'{self.group}_dataset'
         if overwrite_dir:
             if dataset_path.exists(): 
                 shutil.rmtree(dataset_path)
         dataset_path.mkdir()
         
-        # Cast arrays to types to occupy few space
+        # Cast arrays (to occupy few space) and one-hot y patches if marked
         x_patches = self.x_patches.astype(np.float16)
-        y_patches = self.y_patches.astype(np.uint8)
+        if onehot_y_patches:
+            y_patches = self._onehot_y_patches() # already in uint8
+        else:
+            y_patches = self.y_patches.astype(np.uint8)
         
+        # Create and save dataset
         dataset =  tf.data.Dataset.from_tensor_slices((x_patches, y_patches))
         dataset.save(str(dataset_path))            
         
