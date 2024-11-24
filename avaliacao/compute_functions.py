@@ -104,7 +104,7 @@ class RelaxedMetricCalculator:
         self.buffer_y_array = buffer_patches_array(self.y_array, radius_px=self.buffer_px)
         self.buffer_pred_array = buffer_patches_array(self.pred_array, radius_px=self.buffer_px)
     
-    def calculate_metrics(self):
+    def calculate_metrics(self, value_zero_division=None):
         # Calculate buffers
         self._set_buffers()
         
@@ -114,14 +114,32 @@ class RelaxedMetricCalculator:
         # For relaxed precision (use buffer on Y to calculate true positives)
         true_positive_relaxed_precision = (self.buffer_y_array*self.pred_array).sum()
         predicted_positive = self.pred_array.sum()
+        false_positive_relaxed_precision = predicted_positive - true_positive_relaxed_precision
         
         # For relaxed recall (use buffer on Prediction to calculate true positives)
         true_positive_relaxed_recall = (self.y_array*self.buffer_pred_array).sum() 
         actual_positive = self.y_array.sum()
+        false_negative_relaxed_recall = actual_positive - true_positive_relaxed_recall
 
         # Calculate relaxed precision and relaxed recall
         relaxed_precision = true_positive_relaxed_precision / (predicted_positive + epsilon)
         relaxed_recall = true_positive_relaxed_recall / (actual_positive + epsilon)
+        
+        # Special case
+        # If there are no actual positives, recall is 1 because "all" the positives will be discovered
+        # If there are no actual positives and there are no predicted positives, precision is 1
+        # because "all" predictions are correct
+        if actual_positive == 0:
+            relaxed_recall = 1
+            if predicted_positive == 0:
+                relaxed_precision = 1 
+                
+        # Set the marked value in case of zero division, if it is setted
+        if value_zero_division:
+            if predicted_positive == 0:
+                relaxed_precision = value_zero_division
+            if actual_positive == 0:
+                relaxed_recall = value_zero_division        
         
         # Calculate relaxed F1 from relaxed precision and relaxed recall
         relaxed_f1 = (2 * relaxed_precision * relaxed_recall) / (relaxed_precision + relaxed_recall + epsilon)

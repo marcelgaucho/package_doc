@@ -139,7 +139,7 @@ def buffer_patches(patch_test, dist_cells=3):
     return result
 
 # Alternative function to buffer_patches
-def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=200):
+def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=None):
     assert len(patches.shape) == 4 and patches.shape[-1] == 1, 'Patches must be in shape (B, H, W, 1)'
     
     patches = patches.squeeze(axis=3) # Squeeze patches in last dimension (channel dimension)
@@ -151,8 +151,9 @@ def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=200):
     result = [] # Result list
     
     for i, patch in enumerate(patches):
-        if i % print_interval == 0:
-            print(f'Buffering patch {i:>6d}/{size:>6d}')
+        if print_interval:
+            if i % print_interval == 0:
+                print(f'Buffering patch {i:>6d}/{size:>6d}')
             
         buffered_patch = binary_dilation(patch, struct_elem).astype(np.uint8)
         result.append(buffered_patch)
