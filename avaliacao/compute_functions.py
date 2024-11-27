@@ -92,19 +92,27 @@ def compute_metrics(true_labels, predicted_labels):
 
 
 class RelaxedMetricCalculator:
-    def __init__(self, y_array, pred_array, buffer_px):
+    def __init__(self, y_array, pred_array=None, buffer_px=3):
         self.y_array = y_array
         self.pred_array = pred_array
         
         self.buffer_px = buffer_px
         
-    def _set_buffers(self):
         self.buffer_y_array = buffer_patches_array(self.y_array, radius_px=self.buffer_px)
+        self.buffer_pred_array = None
+    
+    def _calculate_buffer_pred(self):
         self.buffer_pred_array = buffer_patches_array(self.pred_array, radius_px=self.buffer_px)
+        
+    def _calculate_prec_recall_f1(self):
+        pass
     
     def calculate_metrics(self, value_zero_division=None):
-        # Calculate buffers
-        self._set_buffers()
+        # Give error if buffer of prediction isn't set
+        assert hasattr(self, 'pred_array'), "Prediction must be set, please set self.pred_array = array"
+        
+        # Set buffer of prediction
+        self._calculate_buffer_pred()
         
         # Epsilon (to not divide by 0)
         epsilon = 1e-7
