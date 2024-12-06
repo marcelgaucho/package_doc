@@ -303,6 +303,8 @@ class MosaicGenerator:
         
         self.output_dir = output_dir
         
+        self.mosaics = None
+        
     def _set_labels_paths(self):
         self.labels_paths = [str(path) for path in Path(self.tiles_dir).iterdir() 
                              if path.suffix=='.tiff' or path.suffix=='.tif']
@@ -316,7 +318,7 @@ class MosaicGenerator:
         i_tile_start = 0
         
         # List with the predicted mosaics
-        pred_mosaics = []
+        mosaics = []
         
         # Build mosaics
         for i_mosaic in range(n_mosaics):
@@ -325,29 +327,29 @@ class MosaicGenerator:
             patches_mosaic = self.test_array[i_tile_start:i_tile_start+self.len_tiles[i_mosaic],
                                             :, :, 0]
             
-            pred_mosaic = unpatch_reference(reference_batches=patches_mosaic, 
+            mosaic = unpatch_reference(reference_batches=patches_mosaic, 
                                             stride=self.stride_tiles[i_mosaic], 
                                             reference_shape=self.shape_tiles[i_mosaic],
                                             border_patches=True)
             
-            pred_mosaics.append(pred_mosaic)
+            mosaics.append(mosaic)
             
             i_tile_start += self.len_tiles[i_mosaic] # Update index where tile starts
             
-        self.pred_mosaics = pred_mosaics
+        self.mosaics = mosaics
             
-        return pred_mosaics
+        return mosaics
     
-    def save_mosaics(self):
-        pred_mosaics = stack_uneven(self.pred_mosaics)[..., np.newaxis] # Transform mosaics list to array
+    def save_mosaics(self, prefix='pred'):
+        mosaics = stack_uneven(self.mosaics)[..., np.newaxis] # Transform mosaics list to array
         
-        np.save(Path(self.output_dir)/'pred_mosaics.npy', pred_mosaics)
+        np.save(Path(self.output_dir)/f'{prefix}_mosaics.npy', mosaics)
         
     def export_mosaics(self, prefix='outmosaic'):
         self._set_labels_paths() # Set list of paths of reference tiles
         
         # Export predictions mosaics
-        for mosaic, label_path in zip(self.pred_mosaics, self.labels_paths):
+        for mosaic, label_path in zip(self.mosaics, self.labels_paths):
             outmosaic_basename = prefix + '_' + Path(label_path).stem + '.tif'
             outmosaic_path = str(Path(self.output_dir)/outmosaic_basename)
 

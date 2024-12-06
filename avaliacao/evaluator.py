@@ -25,7 +25,8 @@ from ..avaliacao.mosaic_functions import MosaicGenerator
 # %% Class definition
 
 
-
+# TODO
+# To average precision is prob array and not pred array
 class ModelEvaluator:
     def __init__(self, x_dir, y_dir, output_dir, label_tiles_dir=None):
         self.x_dir = x_dir
@@ -62,7 +63,7 @@ class ModelEvaluator:
 
         return prob, pred
     
-    def _evaluate_train(self, buffers_px=[3]):
+    def _evaluate_train(self, buffers_px, include_avg_precision):
         # Predict Train
         if not ( ( Path(self.output_dir) / 'prob_train.npy').exists() and ( Path(self.output_dir) / 'pred_train.npy').exists() ):
             prob_train, pred_train = self.model_predict(x_array=self.x_train)
@@ -74,16 +75,21 @@ class ModelEvaluator:
             np.save(self.output_dir + 'prob_train.npy', prob_train)
             np.save(self.output_dir + 'pred_train.npy', pred_train)
             
-        # Load prediction
+        # Load probabilities and prediction
+        if include_avg_precision:
+            prob_train = np.load(self.output_dir + 'prob_train.npy')
+        else:
+            prob_train = None
+            
         pred_train = np.load(self.output_dir + 'pred_train.npy')
         
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
-            metric_calculator = RelaxedMetricCalculator(y_array=self.y_train, pred_array=pred_train, buffer_px=buffer_px)
-            metric_calculator.calculate_metrics()
+            metric_calculator = RelaxedMetricCalculator(y_array=self.y_train, pred_array=pred_train, buffer_px=buffer_px, prob_array=prob_train)
+            metric_calculator.calculate_metrics(include_avg_precision=include_avg_precision)
             metric_calculator.export_results(output_dir=self.output_dir, group='train') 
             
-    def _evaluate_valid(self, buffers_px=[3]):
+    def _evaluate_valid(self, buffers_px, include_avg_precision):
         # Predict Valid
         if not ( ( Path(self.output_dir) / 'prob_valid.npy').exists() and ( Path(self.output_dir) / 'pred_valid.npy').exists() ) :
             prob_valid, pred_valid = self.model_predict(x_array=self.x_valid)
@@ -95,16 +101,21 @@ class ModelEvaluator:
             np.save(self.output_dir + 'prob_valid.npy', prob_valid)
             np.save(self.output_dir + 'pred_valid.npy', pred_valid)
             
-        # Load prediction
+        # Load probabilities and prediction
+        if include_avg_precision:
+            prob_valid = np.load(self.output_dir + 'prob_valid.npy')
+        else:
+            prob_valid = None
+        
         pred_valid = np.load(self.output_dir + 'pred_valid.npy')
         
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
-            metric_calculator = RelaxedMetricCalculator(y_array=self.y_valid, pred_array=pred_valid, buffer_px=buffer_px)
-            metric_calculator.calculate_metrics()
+            metric_calculator = RelaxedMetricCalculator(y_array=self.y_valid, pred_array=pred_valid, buffer_px=buffer_px, prob_array=prob_valid)
+            metric_calculator.calculate_metrics(include_avg_precision=include_avg_precision)
             metric_calculator.export_results(output_dir=self.output_dir, group='valid')
             
-    def _evaluate_test(self, buffers_px=[3]):
+    def _evaluate_test(self, buffers_px, include_avg_precision):
         # Predict Test
         if not ( ( Path(self.output_dir) / 'prob_test.npy').exists() and ( Path(self.output_dir) / 'pred_test.npy').exists() ):
             prob_test, pred_test = self.model_predict(x_array=self.x_test)
@@ -116,48 +127,66 @@ class ModelEvaluator:
             np.save(self.output_dir + 'prob_test.npy', prob_test)
             np.save(self.output_dir + 'pred_test.npy', pred_test)
             
-        # Load prediction
+        # Load probabilities and prediction
+        if include_avg_precision:
+            prob_test = np.load(self.output_dir + 'prob_test.npy')
+        else:
+            prob_test = None
+        
         pred_test = np.load(self.output_dir + 'pred_test.npy')
         
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
-            metric_calculator = RelaxedMetricCalculator(y_array=self.y_test, pred_array=pred_test, buffer_px=buffer_px)
-            metric_calculator.calculate_metrics()
+            metric_calculator = RelaxedMetricCalculator(y_array=self.y_test, pred_array=pred_test, buffer_px=buffer_px, prob_array=prob_test)
+            metric_calculator.calculate_metrics(include_avg_precision=include_avg_precision)
             metric_calculator.export_results(output_dir=self.output_dir, group='test')  
         
-    def evaluate_model(self, evaluate_train=False, evaluate_valid=True, evaluate_test=True, buffers_px=[3]):
+    def evaluate_model(self, evaluate_train=False, evaluate_valid=True, evaluate_test=True, buffers_px=[3],
+                       include_avg_precision=False, prob_array=None):
+        if include_avg_precision:
+            assert prob_array is not None, ("Probabilities array must be set to calculate average precision, "
+                                           "please pass prob_array = array")
+        
         # Evaluate train
         if evaluate_train:
-            self._evaluate_train(buffers_px=buffers_px)
+            self._evaluate_train(buffers_px=buffers_px, include_avg_precision=include_avg_precision)
         
         # Evaluate valid
         if evaluate_valid:
-            self._evaluate_valid(buffers_px=buffers_px)    
+            self._evaluate_valid(buffers_px=buffers_px, include_avg_precision=include_avg_precision)    
             
         # Evaluate test
         if evaluate_test:
-            self._evaluate_test(buffers_px=buffers_px) 
+            self._evaluate_test(buffers_px=buffers_px, include_avg_precision=include_avg_precision) 
             
     def build_test_mosaics(self, prefix='outmosaic'):
         if self.label_tiles_dir is None:
             raise Exception("Couldn't build mosaics because the label tiles directory was not informed")
             
         print('Mosaics will be builded with pred_test saved in output directory')
-        # Load prediction
+        # Load probabilities and prediction
+        prob_test = np.load(self.output_dir + 'prob_test.npy')
         pred_test = np.load(self.output_dir + 'pred_test.npy')
         
         # Load information
         with open(Path(self.y_dir) / 'info_tiles_test.json') as fp:   
             info_tiles_test = json.load(fp)
         
-        # Build, save and export mosaics
+        # Build, save and export mosaics for pred
         mosaics = MosaicGenerator(test_array=pred_test, info_tiles=info_tiles_test, tiles_dir=self.label_tiles_dir,
                                   output_dir=self.output_dir)
         mosaics.build_mosaics()
-        mosaics.save_mosaics()
-        mosaics.export_mosaics(prefix=prefix)
+        mosaics.save_mosaics(prefix='pred')
+        mosaics.export_mosaics(prefix=prefix+'_pred_')
         
-    def evaluate_mosaics(self, buffers_px=[3]):
+        # Build, save and export mosaics for prob
+        mosaics = MosaicGenerator(test_array=prob_test, info_tiles=info_tiles_test, tiles_dir=self.label_tiles_dir,
+                                  output_dir=self.output_dir)
+        mosaics.build_mosaics()
+        mosaics.save_mosaics(prefix='prob')
+        mosaics.export_mosaics(prefix=prefix+'_prob_')
+        
+    def evaluate_mosaics(self, buffers_px=[3], include_avg_precision=False, prob_array=None):
         # Load predicted mosaics
         pred_mosaics = np.load(self.output_dir + 'pred_mosaics.npy')
         
@@ -172,5 +201,5 @@ class ModelEvaluator:
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
             metric_calculator = RelaxedMetricCalculator(y_array=y_mosaics, pred_array=pred_mosaics, buffer_px=buffer_px)
-            metric_calculator.calculate_metrics()
+            metric_calculator.calculate_metrics(include_avg_precision=include_avg_precision)
             metric_calculator.export_results(output_dir=self.output_dir, group='mosaic')  
