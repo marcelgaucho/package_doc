@@ -109,15 +109,15 @@ class RelaxedMetricCalculator:
         
         self.metrics = None
     
-    def _calculate_buffer_pred(self):
-        self.buffer_pred_array = buffer_patches_array(self.pred_array, radius_px=self.buffer_px)
+    def _calculate_buffer_pred(self, print_interval):
+        self.buffer_pred_array = buffer_patches_array(self.pred_array, radius_px=self.buffer_px, print_interval=print_interval)
         
-    def _calculate_prec_recall_f1(self, value_zero_division):
+    def _calculate_prec_recall_f1(self, value_zero_division, print_interval):
         # Give error if prediction isn't set
         assert self.pred_array is not None, "Prediction must be set, please set self.pred_array = array"
         
         # Set buffer of prediction
-        self._calculate_buffer_pred()
+        self._calculate_buffer_pred(print_interval=print_interval)
         
         # Epsilon (to not divide by 0)
         epsilon = 1e-7
@@ -156,7 +156,7 @@ class RelaxedMetricCalculator:
         
         return metrics
     
-    def _calculate_avg_precision(self):
+    def _calculate_avg_precision(self, print_interval):
         ''' Calculate Thresholds '''
         # Flatten prediction array and y_true buffer
         prob_flat = self.prob_array.flatten() # maintain original for use in recall calculus
@@ -193,6 +193,10 @@ class RelaxedMetricCalculator:
     
         # Loop through thresholds
         for i, threshold in enumerate(thresholds):
+            if print_interval:
+                if i % print_interval == 0:
+                    print(f'Calculating threshold {i:>6d}/{len(thresholds):>6d}')
+            
             # Predictions for the current threshold
             pred = (self.prob_array >= threshold).astype(int)
             
@@ -244,18 +248,18 @@ class RelaxedMetricCalculator:
         return avg_precision
     
     def calculate_metrics(self, value_zero_division=None, include_avg_precision=False,
-                          prob_array=None):
+                          prob_array=None, print_interval=200):
         # Give error if probabilities isn't set when calculating average precision
         if include_avg_precision:
             assert self.prob_array is not None, ("Probabilities array must be set to calculate average precision, "
                                                  "please set self.prob_array = array")
         
         # Calculate relaxed precision, recall and f1
-        metrics = self._calculate_prec_recall_f1(value_zero_division=value_zero_division)
+        metrics = self._calculate_prec_recall_f1(value_zero_division=value_zero_division, print_interval=print_interval)
         
         # Calculate average precision
         if include_avg_precision:
-            metrics['relaxed_avg_precision'] = self._calculate_avg_precision()
+            metrics['relaxed_avg_precision'] = self._calculate_avg_precision(print_interval=print_interval)
             
         # Store metrics variable
         self.metrics = metrics        

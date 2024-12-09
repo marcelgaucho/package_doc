@@ -142,11 +142,7 @@ class ModelEvaluator:
             metric_calculator.export_results(output_dir=self.output_dir, group='test')  
         
     def evaluate_model(self, evaluate_train=False, evaluate_valid=True, evaluate_test=True, buffers_px=[3],
-                       include_avg_precision=False, prob_array=None):
-        if include_avg_precision:
-            assert prob_array is not None, ("Probabilities array must be set to calculate average precision, "
-                                           "please pass prob_array = array")
-        
+                       include_avg_precision=False):
         # Evaluate train
         if evaluate_train:
             self._evaluate_train(buffers_px=buffers_px, include_avg_precision=include_avg_precision)
