@@ -182,8 +182,13 @@ class ModelEvaluator:
         mosaics.save_mosaics(prefix='prob')
         mosaics.export_mosaics(prefix=prefix+'_prob_')
         
-    def evaluate_mosaics(self, buffers_px=[3], include_avg_precision=False, prob_array=None):
-        # Load predicted mosaics
+    def evaluate_mosaics(self, buffers_px=[3], include_avg_precision=False):
+        # Load probabilities and prediction for mosaics
+        if include_avg_precision:
+            prob_mosaics = np.load(self.output_dir + 'prob_mosaics.npy')
+        else:
+            prob_mosaics = None
+            
         pred_mosaics = np.load(self.output_dir + 'pred_mosaics.npy')
         
         # Load reference mosaics
@@ -192,10 +197,9 @@ class ModelEvaluator:
         labels_paths.sort()
         y_mosaics = [gdal.Open(y_mosaic_path).ReadAsArray() for y_mosaic_path in labels_paths]
         y_mosaics = stack_uneven(y_mosaics)[..., np.newaxis]
-        y_mosaics[y_mosaics==255] = 0 # Transform 255 (supposedly NODATA) into 0 
         
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
-            metric_calculator = RelaxedMetricCalculator(y_array=y_mosaics, pred_array=pred_mosaics, buffer_px=buffer_px)
+            metric_calculator = RelaxedMetricCalculator(y_array=y_mosaics, pred_array=pred_mosaics, buffer_px=buffer_px, prob_array=prob_mosaics)
             metric_calculator.calculate_metrics(include_avg_precision=include_avg_precision)
-            metric_calculator.export_results(output_dir=self.output_dir, group='mosaic')  
+            metric_calculator.export_results(output_dir=self.output_dir, group='mosaics')  

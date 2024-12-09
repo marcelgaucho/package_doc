@@ -268,7 +268,7 @@ class RelaxedMetricCalculator:
         
     def export_results(self, output_dir, group='test'):
         # Check if group is correct
-        assert group in ('train', 'valid', 'test', 'mosaic'), "Parameter group must be 'train', 'valid', 'test' or 'mosaic'"
+        assert group in ('train', 'valid', 'test', 'mosaics'), "Parameter group must be 'train', 'valid', 'test' or 'mosaics'"
         
         if not hasattr(self, 'metrics'):
             raise Exception("Metrics weren't calculated. First is necessary to "
@@ -357,7 +357,7 @@ def calcula_pred_from_prob_ensemble_mean(prob_array):
 
 
 
-
+# https://github.com/tensorflow/tensorflow/issues/6743
 def patches_to_images_tf(
     patches: np.ndarray, image_shape: tuple,
     overlap: float = 0.5, stitch_type='average', indices=None) -> np.ndarray:
