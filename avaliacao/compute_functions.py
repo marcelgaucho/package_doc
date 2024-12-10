@@ -15,7 +15,7 @@ from .buffer_functions import array_buffer, buffer_patches_array
 
 from tensorflow.keras import backend as K
 
-import os, shutil, gc, json
+import os, shutil, gc, json, pickle
 
 from .save_functions import salva_arrays
 
@@ -108,6 +108,8 @@ class RelaxedMetricCalculator:
         self.buffer_pred_array = None
         
         self.metrics = None
+        
+        self.ap_lists = {}
     
     def _calculate_buffer_pred(self, print_interval):
         self.buffer_pred_array = buffer_patches_array(self.pred_array, radius_px=self.buffer_px, print_interval=print_interval)
@@ -224,6 +226,7 @@ class RelaxedMetricCalculator:
         
         # Reverse order of precision (Increasing Precision) and append 1 to final
         precision = np.hstack((precision[::-1], 1))
+        self.ap_lists['precision'] = precision # Store precision list
         
         # Calculate recall. Set recall to 1 if there are no positive label in y_true
         if actual_positive == 0:
@@ -237,9 +240,11 @@ class RelaxedMetricCalculator:
             
         # Reverse order of recall (Decreasing Recall) and append 0 to final
         recall = np.hstack((recall[::-1], 0))
+        self.ap_lists['recall'] = recall # Store recall list
         
         # Reverse order of thresholds
         thresholds = thresholds[::-1] 
+        self.ap_lists['thresholds'] = thresholds # Store thresholds list
     
         # Calculate average precision
         avg_precision = np.sum(-np.diff(recall) * precision[:-1]) 
@@ -266,7 +271,7 @@ class RelaxedMetricCalculator:
             
         return metrics        
         
-    def export_results(self, output_dir, group='test'):
+    def export_results(self, output_dir, group='test', export_ap_lists=True):
         # Check if group is correct
         assert group in ('train', 'valid', 'test', 'mosaics'), "Parameter group must be 'train', 'valid', 'test' or 'mosaics'"
         
@@ -276,6 +281,13 @@ class RelaxedMetricCalculator:
         
         with open(output_dir + f'relaxed_metrics_{group}_{self.buffer_px}px.json', 'w') as f:
             json.dump(self.metrics, f)
+            
+        if export_ap_lists:
+            with open(output_dir + f'avg_precision_lists_{group}_{self.buffer_px}px.pickle', "wb") as fp: 
+                pickle.dump(self.ap_lists, fp)
+            
+            
+            
     
 
 
