@@ -5,9 +5,9 @@ Created on Thu Aug  1 21:36:26 2024
 @author: Marcel
 """
 from osgeo import gdal
+import cv2
 import numpy as np
 from skimage.morphology import disk
-from scipy.ndimage import binary_dilation
 
 # Faz um buffer em um array binário
 def array_buffer(array, dist_cells=3):
@@ -119,11 +119,14 @@ def buffer_binary_raster(in_raster_path, out_raster_path, dist_cells=3):
 
 # Faz buffer nos patches, sendo que o buffer é feito percorrendo os patches e fazendo o buffer,
 # um por um
-def buffer_patches(patch_test, dist_cells=3):
+def buffer_patches(patch_test, dist_cells=3, print_interval=200):
     result = []
     
     for i in range(len(patch_test)):
-        print('Buffering patch {}/{}'.format(i+1, len(patch_test))) 
+        if print_interval:
+            if i % print_interval == 0:
+                print('Buffering patch {}/{}'.format(i+1, len(patch_test))) 
+                
         # Patch being buffered 
         patch_batch = patch_test[i, ..., 0]
         
@@ -137,6 +140,8 @@ def buffer_patches(patch_test, dist_cells=3):
     result = np.concatenate(result, axis=0)
             
     return result
+
+
 
 # Alternative function to buffer_patches
 def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=None):
@@ -155,9 +160,11 @@ def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=None):
             if i % print_interval == 0:
                 print(f'Buffering patch {i:>6d}/{size:>6d}')
             
-        buffered_patch = binary_dilation(patch, struct_elem).astype(np.uint8)
+        buffered_patch = cv2.dilate(patch.astype(np.uint8), struct_elem)
         result.append(buffered_patch)
         
     result = np.array(result)[..., np.newaxis] # Aggregate list and expand to shape (B, H, W, 1)
     
     return result
+
+
