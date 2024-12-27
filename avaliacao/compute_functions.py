@@ -94,8 +94,6 @@ def compute_metrics(true_labels, predicted_labels):
     return accuracy, f1score, recall, precision
 
 
-# TODO
-# To average precision is prob array and not pred array
 class RelaxedMetricCalculator:
     def __init__(self, y_array, pred_array=None, buffer_px=3, prob_array=None):
         self.y_array = y_array
@@ -158,7 +156,7 @@ class RelaxedMetricCalculator:
         
         return metrics
     
-    def _calculate_avg_precision(self, print_interval):
+    def _calculate_avg_precision(self, print_interval, interpolated):
         ''' Calculate Thresholds '''
         # Flatten prediction array and y_true buffer
         prob_flat = self.prob_array.flatten() # maintain original for use in recall calculus
@@ -225,7 +223,13 @@ class RelaxedMetricCalculator:
         np.divide(cumtp_thres_prec, cumpos_thres, out=precision, where=(cumpos_thres != 0))
         
         # Reverse order of precision (Increasing Precision) and append 1 to final
+        # If average precision is interpolated, only the maximum precision 
+        # up to current position is preserved. For the interpolation, 
+        # the ascending ordered precision list is used
         precision = np.hstack((precision[::-1], 1))
+        if interpolated:
+            precision = np.maximum.accumulate(precision)            
+            
         self.ap_lists['precision'] = precision # Store precision list
         
         # Calculate recall. Set recall to 1 if there are no positive label in y_true
@@ -253,7 +257,7 @@ class RelaxedMetricCalculator:
         return avg_precision
     
     def calculate_metrics(self, value_zero_division=None, include_avg_precision=False,
-                          prob_array=None, print_interval=200):
+                          prob_array=None, print_interval=200, interpolated_avg_precision=True):
         # Give error if probabilities isn't set when calculating average precision
         if include_avg_precision:
             assert self.prob_array is not None, ("Probabilities array must be set to calculate average precision, "
@@ -264,8 +268,8 @@ class RelaxedMetricCalculator:
         
         # Calculate average precision
         if include_avg_precision:
-            metrics['relaxed_avg_precision'] = self._calculate_avg_precision(print_interval=print_interval)
-            
+            metrics['relaxed_avg_precision'] = self._calculate_avg_precision(print_interval=print_interval,
+                                                                             interpolated=interpolated_avg_precision)
         # Store metrics variable
         self.metrics = metrics        
             
