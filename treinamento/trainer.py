@@ -5,23 +5,37 @@ Created on Thu Mar 21 12:25:39 2024
 @author: Marcel
 """
 
-''' Imports '''
+# Class to train the model
+# This is done either with a loop or with the model fit method
+
+# In the case of the loop training, the tensorflow dataset is used
+# and a data augmentation can be applied, by mutiplying the number of 
+# patches in the batch. In this case, to the patches that are not in the 
+# original batch, a transformation is applied randomly, which comprise
+# 7 options: Rotation 90, rotation 180, rotation 270, horizontal flip, vertical flip,
+# vertical flip and 90 degrees rotation, vertical flip and 270 degrees rotation
+
+# In the case of fit training, it can be used the numpy arrays or the tensorflow dataset
+# To apply data augmentation, the tensorflow dataset must be used
+# The data augmentation repeats the dataset n_repeat times and apply a function to
+# each patch in the dataset to maintain or transform it, with the same options of transformation
+# mentioned in the loop case
+
+# %% Imports
+
 import numpy as np, os, shutil, math, pickle, time, types, gc
 
 # Import tensorflow related
 import tensorflow as tf
-from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.metrics import Precision, Recall
 from tensorflow.keras.losses import CategoricalCrossentropy
 
 # Import from other modules inside package
-from .f1_metric import F1Score, RelaxedF1Score
-from .plot_training import show_training_plot
-from .arquiteturas.unetr_2d import config_dict
-print(config_dict)
+from .f1_metric import F1Score
 from .train_loop_functions import train_model_loop
-from .augment_functions import transform_augment_or_maintain        
+from .utils import onehot_numpy, show_training_plot, transform_augment_or_maintain  
 
+# %% Class that do the model training
 
 class ModelTrainer:
     best_model_filename = 'best_model.keras'
@@ -47,7 +61,7 @@ class ModelTrainer:
         # Load Y Train, do One-Hot encoding if necessary. If specified, convert to tensor and clean memory 
         self.y_train = np.load(self.y_dir + 'y_train.npy')        
         if self.y_train.shape[-1] == 1:
-            self.y_train = to_categorical(self.y_train, num_classes=2)
+            self.y_train = onehot_numpy(self.y_train)
         if convert_to_tensor:    
             with tf.device('/CPU:0'):
                 self.y_train = tf.convert_to_tensor(self.y_train)
@@ -56,7 +70,7 @@ class ModelTrainer:
         # Load Y Valid
         self.y_valid = np.load(self.y_dir + 'y_valid.npy')
         if self.y_valid.shape[-1] == 1:
-            self.y_valid = to_categorical(self.y_valid, num_classes=2)
+            self.y_valid = onehot_numpy(self.y_valid)
         if convert_to_tensor:    
             with tf.device('/CPU:0'):
                 self.y_valid = tf.convert_to_tensor(self.y_valid)
@@ -350,18 +364,7 @@ class ModelTrainer:
         
 
 
-def treina_com_subpatches(filenames_train_list, filenames_valid_list, filenames_test_list, model_dir):
-    # Treina modelos
-    for (name_train, name_valid, name_test) in zip(filenames_train_list, filenames_valid_list, filenames_test_list):
-        # Move arquivo para diretório de modelos
-        shutil.copy(name_train, model_dir + 'x_train.npy')
-        shutil.copy(name_valid, model_dir + 'x_valid.npy')
-        shutil.copy(name_test, model_dir + 'x_test.npy')
-        
-        # Treina modelo com os dados
-        output_dir = os.path.dirname(name_train)
-        treina_modelo(model_dir, output_dir, epochs=1000, early_loss=False, model_type='resunet',
-                      loss='cross', lr_decay=True)
+
 
 
         

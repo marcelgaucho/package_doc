@@ -41,7 +41,7 @@ label_tiles_dir = 'dataset_massachusetts_mnih_exp/test/maps/' # dir of test labe
 
 prefix = 'outmosaic'
 
-buffers_px = [0]
+buffers_px = [3]
 include_avg_precision = True # Also evaluate average precision (in addition to precision, recall and F1)
 
 evaluate_train=False
@@ -65,6 +65,7 @@ evaluator.evaluate_model(evaluate_train=evaluate_train,
 # %% Build mosaics
 
 evaluator.build_test_mosaics(prefix=prefix)
+
 
 # %% Evaluate mosaics
 

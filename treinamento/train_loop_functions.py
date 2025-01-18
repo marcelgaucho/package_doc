@@ -5,10 +5,15 @@ Created on Wed Jul 31 20:18:54 2024
 @author: Marcel
 """
 
+# Functions used in train loop
+
+# %% Imports 
 import time, gc
 import numpy as np
 import tensorflow as tf
-from .augment_functions import transform_augment
+from .utils import transform_augment
+
+# %% Do a train step
 
 @tf.function
 def train_step(x, y, model, loss_fn, optimizer, metrics_train):
@@ -16,16 +21,17 @@ def train_step(x, y, model, loss_fn, optimizer, metrics_train):
         model_result = model(x, training=True)
         loss_value = loss_fn(y, model_result)
     
-    # Calcula e aplica gradiente
+    # Calculate and apply gradient
     grads = tape.gradient(loss_value, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
     
-    # Atualiza métricas de treino na lista
+    # Update training metrics
     for train_metric in metrics_train:
         train_metric.update_state(y, model_result)
                 
     return loss_value
 
+# %% Do a validation step
 
 @tf.function
 def test_step(x, y, model, loss_fn, metrics_val):
@@ -38,43 +44,48 @@ def test_step(x, y, model, loss_fn, metrics_val):
         
     return loss_value
 
+# %% Vectorize map function to increase velocity
+
 @tf.function
 def vectorized_map(map_augment_function, tuple_x_y):
     return tf.vectorized_map(map_augment_function, tuple_x_y)
 
+# %% Do the train loop
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
                     loss_fn, metrics_train=[], metrics_val=[], model_path='best_model.keras',
                     early_stopping_delta=0.01, data_augmentation=False, 
                     early_stopping_on_metric=True, augment_batch_factor=2):
     '''
-    Treina modelo por um determinado número de épocas epochs, com early stopping de early_stopping_epochs, 
-    salvando o modelo no diretório model_savedir confome a primeira métrica na lista metrics_val
+    Train the model for a certain number of epochs, with early stopping of early_stopping_epochs,
+    saving the model inside model_savedir directory. The early stopping is based on the 
+    first metric of metrics_val list, in case early_stopping_on_metric is True, otherwise the loss
+    is used; in both cases the best performance, on metric or loss, is saved.
     '''
-    # Valor da perda e valor da métrica serão armazenados em listas
+    # Loss and metric values are stores in lists
     history_train = [] 
     history_valid = []
     
-    # Melhor valor de métrica, ou loss, até o momento no treinamento
+    # Initialize the variables that store the best value of metric and loss
     valid_metric_best_model = 1e-20
     valid_loss_best_model = float('inf')
     
-    # Contagem de épocas sem melhora em valid_metric_best_model
+    # Epochs without improvement
     no_improvement_count = 0
     
-    # Executa treinamento
+    # Training loop
     for epoch in range(epochs):
         print("\nStart of epoch %d" % (epoch))
         start_time = time.time()
         
-        # Inicia loss acumulada da época no treino e validação
+        # Initialize accumulated loss in train and validation
         train_loss = 0
         valid_loss = 0
         
-        # Percorre batches do dataset
+        # Loop through dataset batches
         for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
             if data_augmentation:
-                # Compute new "batches" 
+                # Compute "new" batches 
                 x_batches_train_augmented = []
                 y_batches_train_augmented = []
                 for _ in range(augment_batch_factor-1):
@@ -93,7 +104,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             # Train Step
             loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
             
-            # Incrementa acumulador de loss
+            # Increase train loss accumulator
             train_loss = train_loss + loss_value            
                 
             # Log every 200 batches
@@ -104,35 +115,34 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 )
                 print("Seen so far: %s samples" % ((step + 1) * x_batch_train.shape[0])) # x_batch_train.shape[0] é o batch size final, já com aumento de dados
         
-        
-        # Adiciona loss acumulada/quantidade de batches   e a métrica acumulada (primeira da lista) para o histórico de treinao
+        # Write to train history the train loss (mean loss or accumulated loss/number of batches) and the first metric for the epoch
         history_train.append(   np.array([[train_loss/(step+1), metrics_train[0].result()]])   )         
         
-        # Exibe métricas no final de cada época
+        # Show train metrics
         for train_metric in metrics_train:
             result_train_metric = train_metric.result()            
             print(f"Training {train_metric.__class__.__name__.lower()} over epoch: {result_train_metric:.4f}")
-            train_metric.reset_state() # Dá reset na métrica de treino no final da época
+            train_metric.reset_state() # Reset train metric in the end of the epoch
             
-        # Computa validação no final de cada época
+        # Compute validation results in the end of the epoch
         for x_batch_val, y_batch_val in valid_dataset:
             # Validation step
             loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val) 
 
-            # Incrementa acumulador de loss da validação  
+            # Increase valid loss accumulator  
             valid_loss = valid_loss + loss_value
 
 
-        # Adiciona loss acumulada/quantidade de batches   e a métrica acumulada (primeira da lista) para o histórico de validacao
+        # Write to validation history the valid loss (mean loss or accumulated loss/number of batches) and the first metric for the epoch
         metrics_val0 = metrics_val[0].result()
         loss_val = valid_loss/(step+1)
         history_valid.append(   np.array([[loss_val, metrics_val0]])   )   
 
-        # Zera loss de treino e validação acumuladas para a próxima época
+        # Reset accumulated training and validation losses for the next epoch
         train_loss = 0
         valid_loss = 0
  
-        # Exibe métricas de Validação no final de cada época e tempo gasto para época
+        # Show validation metrics and the time taken in the end of the epoch
         for val_metric in metrics_val:
             result_val_metric = val_metric.result()
             print(f"Validation {val_metric.__class__.__name__.lower()}: {result_val_metric:.4f}")
@@ -144,13 +154,11 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         if early_stopping_epochs:
             # Early Stopping on Metric
             if early_stopping_on_metric:
-                # Se valor absoluto da diferenca de incremento (ou decremento) for abaixo de early_stopping_delta,
-                # então segue para contagem do Early Stopping
+                # If the absolute value of the increase (or decrease) is below early_stopping_delta,
+                # then proceed to Early Stopping count
                 diff = metrics_val0 - valid_metric_best_model
                 if abs(diff) < early_stopping_delta:
-                    # Stop if there are no improvement along early_stopping_epochs  
-                    # This means, the situation above described persists for
-                    # early_stopping_epochs
+                    # Stop if there are no improvement during early_stopping_epochs  
                     print('Early Stopping Count Increasing to: %d' % (no_improvement_count+1))
                     if no_improvement_count+1 >= early_stopping_epochs:
                         print('Early Stopping reached')
@@ -158,8 +166,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                     else:
                         no_improvement_count = no_improvement_count+1
                         
-                # Métrica diminuindo, pois metrics_val0 - valid_metric_best_model é menor que 0
-                # Como isso normalmente é ruim, também segue para contagem do Early Stopping
+                # Metric decreasing, as metrics_val0 - valid_metric_best_model is less than 0
+                # Because this is bad, proceed to Early Stopping count
                 elif diff < 0:
                     print('Early Stopping Count Increasing to: %d' % (no_improvement_count+1))
                     if no_improvement_count+1 >= early_stopping_epochs:
@@ -168,9 +176,9 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                     else:
                         no_improvement_count = no_improvement_count+1
                         
-                # Métrica aumentando, pois metrics_val0 - valid_metric_best_model é maior que 0
-                # Normalmente é uma coisa positiva, como por exemplo acurácia, precisão, recall aumentando.
-                # Então salvamos o modelo e zeramos a contagem do Early Stopping
+                # Metric increasing, as metrics_val0 - valid_metric_best_model is greater than 0
+                # Normally this is positive, such as accuracy, precision, recall increasing.
+                # So we save the model and reset the Early Stopping count
                 else:
                     valid_metric_best_model = metrics_val0
                     no_improvement_count = 0
@@ -189,8 +197,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                     else:
                         no_improvement_count = no_improvement_count+1
                         
-                # Loss diminuindo, pois loss_val - valid_loss_best_model é menor que 0, o que é bom
-                # Salva modelo e zera contagem de Early Stopping
+                # Loss decreasing, as loss_val - valid_loss_best_model is less than 0
+                # This is good, so save the model and reset Early Stopping count
                 elif diff < 0:
                     valid_loss_best_model = loss_val
                     no_improvement_count = 0
@@ -199,8 +207,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                     print("Saving the model...")
                     model.save(model_path)
                        
-                # Loss aumentando, pois loss_val - valid_loss_best_model é maior que 0, o que é ruim
-                # Segue para contagem do Early Stopping
+                # Loss increasing, as loss_val - valid_loss_best_model is greater than 0
+                # This is bad, so proceed to Early Stopping count
                 else:
                     print('Early Stopping Count Increasing to: %d' % (no_improvement_count+1))
                     if no_improvement_count+1 >= early_stopping_epochs:
@@ -208,7 +216,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                         break
                     else:
                         no_improvement_count = no_improvement_count+1
-        # Sem Early Stopping, salva o modelo que tiver menor loss
+        # Without Early Stopping, save the model with smallest loss
         else:
             diff = loss_val - valid_loss_best_model
             if diff < 0 and abs(diff) < early_stopping_delta: 
@@ -219,7 +227,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 model.save(model_path)
             
 
-    # Retorna lista de 2 listas
-    # Primeira é com histórico de treino e segunda com histórico de validação
-    # Cada elemento tem na primeira posição a loss e na segunda a métrica para a época correspondente à posição do elemento
+    # Return list of 2 lists, each one is a list of tuples
+    # The first is with training history and the second is with Primeira é com histórico de treino e segunda com histórico de validação
+    # Each tuple has in its first element the loss and in its second element the metric for the epoch corresponding to its position
     return [ history_train, history_valid ]

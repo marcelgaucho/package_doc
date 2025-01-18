@@ -5,10 +5,17 @@ Created on Fri Feb  9 00:24:23 2024
 @author: Marcel
 """
 
+# UNETR model
+# The function comprises the input shape in format (patch_height, patch_width, patch_channels),
+# the number of classes in classification and a hyperparameters dictionary
+# The build_unetr_2d function requires other funcions and a class that build parts of the model
+
+# %% Imports
+
 import tensorflow as tf
 from tensorflow.keras.layers import (Input, Dense, Embedding, LayerNormalization,
                                      MultiHeadAttention, Add, Dropout, Reshape,
-                                     Conv2DTranspose, MaxPool2D, Conv2D, 
+                                     Conv2DTranspose, Conv2D, 
                                      BatchNormalization, ReLU, Concatenate)
 
 from tensorflow.keras.models import Model
@@ -17,57 +24,14 @@ from tensorflow.keras import layers
 
 import numpy as np
 
-# from icecream import ic
-
 from math import log2
 
-
-# %% Hyperparameters
-
-IMG_SIZE = 256 # No caso isso seria equivalente ao tamanho do PATCH em uma CNN
-NUM_CHANNELS = 3
-PATCH_SIZE = 16 # Isso seria equivalente a um subpatch (talvez o tamanho de um filtro em uma CNN?)
-NUM_PATCHES = (IMG_SIZE//PATCH_SIZE) ** 2
-
-HIDDEN_DIM = 128 # Dimensão do Embedding  
-NUM_LAYERS = 12 # Número de Layers (Encoders) no Transformer
-NUM_HEADS = 8 # Número de Cabeças para Atenção MultiCabeça
-MLP_DIM = 256 # Dimensão da rede MLP no final da arquitetura
-DROPOUT = 0.1 # Taxa de Dropout no MLP do Transformer
-MAX_FILTERS = 512 # Maximum number of filter in the Decoder
-
-
-# Como são 4 deconvoluções, e partimos do valor do patch size, então
-# vejo que em cada deconvolução, o patch duplica de tamanho.
-# Com isso, ao final o tamanho da deconvolução precisa bater com
-# o da imagem. O tamanho da deconvolução é patch_size*2*2*2*2,
-# ou patch_size*2^4 ou patch_size*16
-
-
-
-
-# %% Hyperparameters Dictionary
-
-config_dict = {'IMG_SIZE': IMG_SIZE,
-               'NUM_CHANNELS': NUM_CHANNELS,
-               'PATCH_SIZE': PATCH_SIZE,
-               'NUM_PATCHES': NUM_PATCHES,
-               'HIDDEN_DIM': HIDDEN_DIM,
-               'NUM_LAYERS': NUM_LAYERS,
-               'NUM_HEADS': NUM_HEADS, 
-               'MLP_DIM': MLP_DIM,
-               'DROPOUT': DROPOUT,
-               'MAX_FILTERS': MAX_FILTERS}
-
-
-# %%
+# %% Accessory functions
 
 def mlp(x, config_dict):
     x = Dense(config_dict["MLP_DIM"], activation="gelu")(x)
     x = Dense(config_dict["HIDDEN_DIM"], activation="gelu")(x)
     return x
-
-# %%
 
 def transformer_encoder(x, config_dict):
     skip_1 = x
@@ -86,23 +50,17 @@ def transformer_encoder(x, config_dict):
     
     return x
 
-
-# %%
-
 def conv_block(x, num_filters, kernel_size=3):
     x = Conv2D(num_filters, kernel_size=kernel_size, padding="same")(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     return x
 
-# %%
-
 def deconv_block(x, num_filters, strides=2):
     x = Conv2DTranspose(num_filters, kernel_size=2, padding="same", strides=strides)(x)
     return x
 
-
-# %%
+# %% Class that extract patches from the input image (equivalent to a CNN patch)
 
 class Patches(layers.Layer):
     def __init__(self, patch_size, **kwargs):
@@ -128,8 +86,9 @@ class Patches(layers.Layer):
                                        patch_dims])
         return patches
 
-# %%
-def build_unetr_2d(input_shape, config_dict):
+# %% UNETR Build Function
+
+def build_unetr_2d(input_shape, n_classes, config_dict):
     """ Inputs """
     inputs = Input(input_shape) 
     
@@ -245,11 +204,7 @@ def build_unetr_2d(input_shape, config_dict):
     x = conv_block(x, config_dict["MAX_FILTERS"]//8)
 
     """ Output """
-    outputs = Conv2D(2, kernel_size=1, padding="same", activation="softmax")(x)
+    outputs = Conv2D(n_classes, kernel_size=1, padding="same", activation="softmax")(x)
     
     return Model(inputs, outputs, name="UNETR_2D")
 
-# %% Testa função
-
-input_shape = (IMG_SIZE, IMG_SIZE, NUM_CHANNELS)
-model = build_unetr_2d(input_shape, config_dict)

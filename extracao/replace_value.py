@@ -17,7 +17,7 @@ def replace_value_y_files(y_dir: str, old_value: int, new_value: int):
     
     for y_path in y_paths:
         # Open as dataset and get metadata
-        y_dataset = gdal.Open(y_path, gdal.GA_Update)
+        y_dataset = gdal.Open(str(y_path), gdal.GA_Update)
         y_dataset_geotransform = y_dataset.GetGeoTransform()
         y_dataset_projection = y_dataset.GetProjection()
         

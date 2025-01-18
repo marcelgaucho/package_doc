@@ -9,7 +9,6 @@ Created on Fri Nov  1 19:21:02 2024
 
 from osgeo import gdal
 from pathlib import Path
-from icecream import ic
 import numpy as np
 import shutil
 import tensorflow as tf
@@ -37,7 +36,9 @@ class DirPatchExtractor:
         # Data for extraction
         self.patch_size = patch_size
         
-        self.overlap = overlap        
+        self.overlap = overlap    
+        assert 0 <= self.overlap < 1, ("Overlap must be greater than or equal to 0 (no overlap) "
+                                       "and lower than 1 (no stride)") # Overlap restriction
         self.stride = self.patch_size - int(self.patch_size * self.overlap)
         
         self.border_patches = border_patches
@@ -80,12 +81,10 @@ class DirPatchExtractor:
         
         # Loop through the lists with tiles paths
         for x_tile, y_tile in zip(self.x_tiles, self.y_tiles):
-            ic(x_tile, y_tile)
             
             # Extract patches
             p_x = self._extract_patches(img_array=x_tile)
             p_y = self._extract_patches(img_array=y_tile)
-            ic(p_x, p_y)
             
             # If marked, filter patches for without nodata and that contains object
             if self.filter_nodata:
@@ -124,11 +123,10 @@ class DirPatchExtractor:
     def _extract_patches(self, img_array: np.ndarray):
         '''
         Extract patches from numpy image in format (Height, Width, Channels), with a squared patch of informed patch_size,
-        with a specified overlap (normally a decimal in range [0, 1[).
+        with a specified overlap (in range [0, 1[).
         Patches are extracted by row, from left to right, optionally with border patches. If border patches are marked,
         at most only one patch is extracted for each line or column and only when necessary to complete the image.
         '''
-        assert self.overlap < 1, "Overlap must be lower than 1 for the stride to be positive" # Overlap restriction
         assert len(img_array.shape) == 3, 'Image must be in shape (Height, Width, Channels)' # Image shape restriction
         
         # Dimensions of input and output
@@ -145,8 +143,6 @@ class DirPatchExtractor:
             h_output = int(  (h_input - self.patch_size)/self.stride + 1 )
             w_output = int(  (w_input - self.patch_size)/self.stride + 1 )
        
-        ic(h_output, w_output)
-        
         if (h_output <= 0 or w_output <= 0) and self.border_patches == False:
             raise Exception('Could not generate output with zero height or width')
             
@@ -154,8 +150,6 @@ class DirPatchExtractor:
         # for ease, the last is stored in case of border_patches
         last_m = h_output - 1
         last_n = w_output - 1
-        
-        ic(last_m, last_n)
         
         # List with image patches
         patch_img = []

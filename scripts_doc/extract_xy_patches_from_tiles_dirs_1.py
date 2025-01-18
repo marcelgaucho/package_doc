@@ -7,17 +7,74 @@ Created on Sat Nov  2 13:01:06 2024
 
 # Extract x and y patches from directories of tiles
 
+# This is done according to parameters
+
+# The patch_size is the size of the patch
+
+# The overlap is the overlap between patches (in range [0, 1[), e.g.,
+# 0.25 means 25% of overlap between patches (in horizontal and vertical directions)
+
+# border patches extraction (with a maximum of one border patch per line/column)
+# are regulated by border_patches parameter, that is set set as False for 
+# train and validation groups, and True for test group, in order to build the mosaics 
+
+# The filter_nodata is used to only extract patches without 
+# pixels with nodata_value,
+# with a certain tolerance set by nodata_tolerance, e.g.,
+# nodata_tolerance = 10 and nodata_value = (255, 255, 255)
+# only allows patches with the maximum of 10 pixels 
+# with value (255, 255, 255). 
+# The filter_nodata is set to True in train and validation groups, 
+# to filter these patches, 
+# and to False in test group, to not filter
+# these patches, in order to build the mosaics 
+
+# The filter_object is used to only extract patches with a
+# certain amount of pixels of the object (road in this case).
+# This inhibits the extraction of patches with only background.
+# The object_value is the pixel value of the object class.
+# The threshold_percentage is the maximum percentage, 
+# relative to the patch's total pixels, 
+# that excludes patches from the set. 
+# Therefore, only patches with object percentage 
+# above the threshold_percentage are selected.  
+# The filter_object is set to True in train and validation groups, 
+# to filter these patches, 
+# and to False in test group, to not filter
+# these patches, in order to build the mosaics 
+
+# if overwrite_arrays is set to True, the arrays written in the output directories
+# overwrite the existent arrays
+
+# if overwrite_dir is set to True, the tensorflow dataset directory is overwritten in
+# the output directory
+
+# if onehot_y_patches is set to True, the y patches are one-hot codified when exporting
+# to the tensorflow dataset format. This is the default behavior.
+
+# if overwrite_info is set to True, the JSON metadata is overwritten 
+# in the output directory
+
 # %% Import Libraries
 
 from package_doc.extracao.patches_extraction import DirPatchExtractor
+from pathlib import Path
 
 # %% X and Y Input and Output Directories
 
-group = 'train' # train, valid or test group
+group = 'test' # train, valid or test group
 in_x_dir = fr'dataset_massachusetts_mnih_exp/{group}/input/'
 in_y_dir = fr'dataset_massachusetts_mnih_exp/{group}/maps/'
-out_x_dir = 'teste_x1/'
-out_y_dir = 'teste_y1/'
+out_x_dir = 'teste_x2/'
+out_y_dir = 'teste_y2/'
+
+# %% Create output directories if they don't exist
+
+if not Path(out_x_dir).exists():
+    Path(out_x_dir).mkdir()
+    
+if not Path(out_y_dir).exists():
+    Path(out_y_dir).mkdir()
 
 # %% Parameters for extraction
 

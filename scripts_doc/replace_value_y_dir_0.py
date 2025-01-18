@@ -6,6 +6,7 @@ Created on Fri Nov  1 16:52:24 2024
 """
 
 # Replace values in tiff files in a y directory
+# Used to replace 255 with 1 in train, valid and test directories
 
 # %% Import Libraries
 
@@ -13,7 +14,7 @@ from package_doc.extracao.replace_value import replace_value_y_files
 
 # %% Y Directory
 
-y_dir = r'dataset_massachusetts_mnih_exp/train/maps/'
+y_dir = r'dataset_massachusetts_mnih_exp/test/maps/'
 
 # %% Value to replace
 

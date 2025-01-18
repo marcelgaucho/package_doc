@@ -19,14 +19,12 @@ from ..treinamento.arquiteturas.segformer_tf_k2.models.modules import MixVisionT
 from ..treinamento.arquiteturas.segformer_tf_k2.models.Head import SegFormerHead
 from ..treinamento.arquiteturas.segformer_tf_k2.models.utils import ResizeLayer
 
-from ..avaliacao.compute_functions import RelaxedMetricCalculator, stack_uneven
-from ..avaliacao.mosaic_functions import MosaicGenerator
+from .metric_calculator import RelaxedMetricCalculator
+from .mosaic_functions import MosaicGenerator
+from .utils import stack_uneven
 
 # %% Class definition
 
-
-# TODO
-# To average precision is prob array and not pred array
 class ModelEvaluator:
     def __init__(self, x_dir, y_dir, output_dir, label_tiles_dir=None):
         self.x_dir = x_dir
@@ -35,9 +33,9 @@ class ModelEvaluator:
         self.label_tiles_dir = label_tiles_dir
         
         self.model = load_model(output_dir + 'best_model' + '.keras', compile=False, custom_objects={"Patches": Patches, 
-                                                                                                     "MixVisionTransformer": MixVisionTransformer,
-                                                                                                     "SegFormerHead": SegFormerHead,
-                                                                                                     "ResizeLayer": ResizeLayer})
+                                                                                                      "MixVisionTransformer": MixVisionTransformer,
+                                                                                                      "SegFormerHead": SegFormerHead,
+                                                                                                      "ResizeLayer": ResizeLayer})
         
         self._set_numpy_arrays()
         
