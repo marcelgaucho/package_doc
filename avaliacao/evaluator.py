@@ -20,7 +20,7 @@ from ..treinamento.arquiteturas.segformer_tf_k2.models.Head import SegFormerHead
 from ..treinamento.arquiteturas.segformer_tf_k2.models.utils import ResizeLayer
 
 from .metric_calculator import RelaxedMetricCalculator
-from .mosaic_functions import MosaicGenerator
+from .mosaics import MosaicGenerator
 from .utils import stack_uneven
 
 # %% Class definition

@@ -5,6 +5,27 @@ Created on Wed May 10 18:05:37 2023
 @author: marcel.rotunno
 """
 
+# Train a model according to the model and X, Y data
+
+# Various parameters must be passed
+
+# The batch_size is the input batch size to the training,
+# which will in practice be increased by data augmentation, 
+# multiplying it by augment_batch_factor. 
+
+# The model_type must be one of the types: "unet",
+# "resunet", "unetr", "segformer_b5"
+
+# The early_stopping_epochs is the number of epochs used
+# to early stopping the training
+
+# The input_shape is the shape of the patch used for
+# training
+
+# The n_classes is the number of classes used in 
+# classification, e.g, for road and background use 2
+
+
 # %% Imports
 
 import tensorflow as tf
@@ -34,6 +55,9 @@ batch_size = 2
 model_type = 'resunet'
 early_stopping_epochs = 3
 
+input_shape = (256, 256, 3)
+n_classes = 2
+
 # %% Input and output directories
 
 # x_dir = r'entrada/'
@@ -51,10 +75,9 @@ from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
 
 
-# %% Build ResUnet model
+# %% Build model
 
-input_shape = (256, 256, 3)
-n_classes = 2
+
 model = build_model(input_shape, n_classes, model_type=model_type, config_dict=config_dict)
 
 # %% Build optimizer

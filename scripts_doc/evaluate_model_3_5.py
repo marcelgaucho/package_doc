@@ -32,9 +32,9 @@ from package_doc.avaliacao.evaluator import ModelEvaluator
 
 # %% Directories
 
-x_dir = 'teste_x1/'
-y_dir = 'teste_y1/'
-output_dir = 'saida_resunet_loop_2x_2b/'
+x_dir = 'teste_x2/'
+y_dir = 'teste_y2/'
+output_dir = 'saida_resunet_loop_2x_2b_1/'
 label_tiles_dir = 'dataset_massachusetts_mnih_exp/test/maps/' # dir of test labels
 
 # %% Parameters for evaluation
