@@ -5,6 +5,27 @@ Created on Wed May 10 18:05:37 2023
 @author: marcel.rotunno
 """
 
+# Train a model according to the model and X, Y data
+
+# Various parameters must be passed
+
+# The batch_size is the input batch size to the training,
+# which will in practice be increased by data augmentation, 
+# multiplying it by augment_batch_factor. 
+
+# The model_type must be one of the types: "unet",
+# "resunet", "unetr", "segformer_b5"
+
+# The early_stopping_epochs is the number of epochs used
+# to early stopping the training
+
+# The input_shape is the shape of the patch used for
+# training
+
+# The n_classes is the number of classes used in 
+# classification, e.g, for road and background use 2
+
+
 # %% Imports
 
 import tensorflow as tf
@@ -14,7 +35,7 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 from pathlib import Path
 import pdb
 
-# %% Limita Memória usada pela GPU ou limita threads caso não haja GPU
+# %% Limit GPU Memory or, in case of no gpu available, limit number of threads used
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 gpus = tf.config.list_physical_devices('GPU')
@@ -31,42 +52,42 @@ else:
 # %% Data for Script
 
 batch_size = 2
-model_type = 'unetr'
-early_stopping_epochs = 25
+model_type = 'resunet'
+early_stopping_epochs = 3
 
-# %% Diretórios de entrada e saída
+input_shape = (256, 256, 4)
+n_classes = 2
+
+# %% Input and output directories
 
 # x_dir = r'entrada/'
 # y_dir = r'y_directory/'
-x_dir = r'teste_x/'
-y_dir = r'teste_y/'
-output_dir = fr'saida_{model_type}_loop_2x_{batch_size}b/'
+x_dir = r'x_entropy_resunet1/'
+y_dir = r'teste_y1/'
+output_dir = fr'saida_entropy_{model_type}_loop_2x_{batch_size}b/'
 
 
-# %%  Imports from package
+# %% Imports from package
 
-from package_doc.treinamento.functions_train import ModelTrainer
+from package_doc.treinamento.trainer import ModelTrainer
 from package_doc.treinamento.f1_metric import F1Score, RelaxedF1Score
-from package_doc.treinamento.arquiteturas.modelos import build_model
-from package_doc.treinamento.arquiteturas.unetr_2d import config_dict
+from package_doc.treinamento.arquiteturas.models import build_model
+from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
 
 
-# %% Constroi modelo ResUnet
+# %% Build model
 
-input_shape = (256, 256, 3)
-n_classes = 2
 model = build_model(input_shape, n_classes, model_type=model_type, config_dict=config_dict)
 
-# %% Constroi otimizador
+# %% Build optimizer
 
 #pdb.set_trace()
 optimizer = Adam() 
 
-# %% Treina Modelo com Loop 
+# %% Train Model with Loop
 
 if not Path(output_dir).exists():
-    Path(output_dir).mkdir(exist_ok=True)
-    
+    Path(output_dir).mkdir()
     
 model_trainer = ModelTrainer(x_dir=x_dir, y_dir=y_dir, output_dir=output_dir, model=model,
                              optimizer=optimizer)

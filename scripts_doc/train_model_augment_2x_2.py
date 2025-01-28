@@ -55,15 +55,15 @@ batch_size = 2
 model_type = 'resunet'
 early_stopping_epochs = 3
 
-input_shape = (256, 256, 3)
+input_shape = (256, 256, 4)
 n_classes = 2
 
 # %% Input and output directories
 
 # x_dir = r'entrada/'
 # y_dir = r'y_directory/'
-x_dir = r'teste_x2/'
-y_dir = r'teste_y2/'
+x_dir = r'teste_x1/'
+y_dir = r'teste_y1/'
 output_dir = fr'saida_{model_type}_loop_2x_{batch_size}b/'
 
 
@@ -76,7 +76,6 @@ from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
 
 
 # %% Build model
-
 
 model = build_model(input_shape, n_classes, model_type=model_type, config_dict=config_dict)
 
