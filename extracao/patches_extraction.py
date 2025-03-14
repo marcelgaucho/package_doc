@@ -162,7 +162,7 @@ class DirPatchExtractor:
                 i_w = n*self.stride
                 
                 # Image is overflowed
-                if (m == h_output - 1 or n == w_output - 1) and self.border_patches:
+                if (m == last_m or n == last_n) and self.border_patches:
                     # Border Patch initially has zeros
                     border_patch_img = np.zeros((self.patch_size, self.patch_size, c_output), dtype=img_array.dtype)
                     
