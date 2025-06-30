@@ -16,7 +16,7 @@ import json
 
 
 
-# %% PatchExtractor class definition
+# %% Class definition for directory patch extraction
 
 class DirPatchExtractor:
     def __init__(self, in_x_dir: str, in_y_dir: str, out_x_dir: str, out_y_dir: str,

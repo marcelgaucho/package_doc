@@ -102,7 +102,13 @@ class EntropyCalculator:
                 entropy = entropy + prob_mean[..., k:k+1] * np.log(prob_mean[..., k:k+1] + epsilon)
                 
             entropy = - entropy / np.log(K) # scale to [0, 1], because entropy maximum is log(K)
-                                                      
+            
+            # Normalize to [0, 1]
+            minimum = entropy.min()
+            maximum = entropy.max()
+            
+            entropy = (entropy - minimum) / (maximum - minimum)
+            
             entropy = np.clip(entropy, 0, 1) # Clip values to [0 e 1]
             return entropy
             
@@ -110,7 +116,13 @@ class EntropyCalculator:
             # Road Class is 1
             entropy = entropy + prob_mean[..., 1:1+1] * np.log(prob_mean[..., 1:1+1] + epsilon)
             
-            entropy = - entropy / np.log(K) # scale to [0, 1], because entropy maximum is log(K)
+            entropy = - entropy / np.log(K) # scale entropy
+            
+            # Normalize to [0, 1]
+            minimum = entropy.min()
+            maximum = entropy.max()
+            
+            entropy = (entropy - minimum) / (maximum - minimum)
             
             entropy = np.clip(entropy, 0, 1) # Clip values to [0 e 1]
             return entropy
@@ -119,7 +131,13 @@ class EntropyCalculator:
             # Road Class is 0
             entropy = entropy + prob_mean[..., 0:0+1] * np.log(prob_mean[..., 0:0+1] + epsilon)
             
-            entropy = - entropy / np.log(K) # scale to [0, 1], because entropy maximum is log(K)
+            entropy = - entropy / np.log(K) # scale entropy
+            
+            # Normalize to [0, 1]
+            minimum = entropy.min()
+            maximum = entropy.max()
+            
+            entropy = (entropy - minimum) / (maximum - minimum)
             
             entropy = np.clip(entropy, 0, 1) # Clip values to [0 e 1]     
             return entropy
