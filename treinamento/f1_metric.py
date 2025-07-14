@@ -5,11 +5,16 @@ Created on Wed Jul 24 18:24:57 2024
 @author: marce
 """
 
+# F1-Score and Relaxed F1-Score metrics implementation to use in early stopping
+
+# %% Imports
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 from skimage.morphology import disk
 
+# %% F1-Score class
 
 class F1Score(Metric):
     def __init__(self, name='f1score', beta=1, threshold=0.5, epsilon=1e-7, **kwargs):
@@ -59,6 +64,8 @@ class F1Score(Metric):
         self.predicted_positive.assign(0) # resets predicted positives to zero
         self.actual_positive.assign(0) # resets actual positives to zero
         
+
+# %% Relaxed F1-Score class
 
 class RelaxedF1Score(Metric):
     def __init__(self, name='f1score', beta=1, threshold=0.5, epsilon=1e-7, 
