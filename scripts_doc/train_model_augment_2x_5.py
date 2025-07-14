@@ -73,7 +73,7 @@ from package_doc.treinamento.trainer import ModelTrainer
 from package_doc.treinamento.f1_metric import F1Score, RelaxedF1Score
 from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
-
+from package_doc.treinamento.custom_loss import CustomEntropyLoss
 
 # %% Build model
 
@@ -95,7 +95,7 @@ result = model_trainer.train_with_loop(epochs=2000, early_stopping_epochs=early_
                                        metrics_train=[RelaxedF1Score(), Precision(class_id=1), Recall(class_id=1)],
                                        metrics_val=[RelaxedF1Score(), Precision(class_id=1), Recall(class_id=1)],
                                        learning_rate=0.001, 
-                                       loss_fn=CategoricalCrossentropy(from_logits=False),
+                                       loss_fn=CustomEntropyLoss(),
                                        buffer_shuffle=None, batch_size=batch_size,
                                        data_augmentation=True, augment_batch_factor=2)
 del model_trainer

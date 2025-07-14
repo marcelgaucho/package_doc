@@ -12,14 +12,18 @@ import time, gc
 import numpy as np
 import tensorflow as tf
 from .utils import transform_augment
+from inspect import signature
 
 # %% Do a train step
 
 @tf.function
-def train_step(x, y, model, loss_fn, optimizer, metrics_train):
+def train_step(x, y, model, loss_fn, optimizer, metrics_train, input_tensor=None):
     with tf.GradientTape() as tape:
         model_result = model(x, training=True)
-        loss_value = loss_fn(y, model_result)
+        if input_tensor is not None:
+            loss_value = loss_fn(y, model_result, input_tensor=input_tensor)
+        else:
+            loss_value = loss_fn(y, model_result)
     
     # Calculate and apply gradient
     grads = tape.gradient(loss_value, model.trainable_weights)
@@ -34,11 +38,14 @@ def train_step(x, y, model, loss_fn, optimizer, metrics_train):
 # %% Do a validation step
 
 @tf.function
-def test_step(x, y, model, loss_fn, metrics_val):
+def test_step(x, y, model, loss_fn, metrics_val, input_tensor=None):
     val_result = model(x, training=False)
-    loss_value = loss_fn(y, val_result)    
-    
-    # Atualiza métricas de validação na lista
+    if input_tensor is not None:
+        loss_value = loss_fn(y, val_result, input_tensor=input_tensor)
+    else:
+        loss_value = loss_fn(y, val_result)
+        
+    # Update valid metrics
     for val_metric in metrics_val:
         val_metric.update_state(y, val_result)
         
@@ -62,7 +69,11 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     first metric of metrics_val list, in case early_stopping_on_metric is True, otherwise the loss
     is used; in both cases the best performance, on metric or loss, is saved.
     '''
-    # Loss and metric values are stores in lists
+    # Parameters of loss call (more than y_true and y_pred?)
+    sig_losscall = signature(loss_fn.__call__)
+    loss_parameters_names = [param.name for param in sig_losscall.parameters.values()]
+    
+    # Loss and metric values are stored in lists
     history_train = [] 
     history_valid = []
     
@@ -102,7 +113,11 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 gc.collect()
 
             # Train Step
-            loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
+            if 'input_tensor' in loss_parameters_names:
+                loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train,
+                                        input_tensor=x_batch_train)
+            else:
+                loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
             
             # Increase train loss accumulator
             train_loss = train_loss + loss_value            
@@ -127,7 +142,11 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         # Compute validation results in the end of the epoch
         for x_batch_val, y_batch_val in valid_dataset:
             # Validation step
-            loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val) 
+            if 'input_tensor' in loss_parameters_names:
+                loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val,
+                                       input_tensor=x_batch_val)
+            else:
+                loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val)
 
             # Increase valid loss accumulator  
             valid_loss = valid_loss + loss_value
