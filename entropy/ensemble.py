@@ -71,53 +71,56 @@ class Ensemble:
         
         return prob_mean_ensemble
     
-    def entropy(self, min_target_scale=0, max_target_scale=1, save_result=False):
+    def entropy(self, min_target_scale=0, max_target_scale=1, perc_cut=None, save_result=False):
         epsilon = self.epsilon
         
         prob_ensemble = self.prob_mean_ensemble
         
         entropy = -np.sum(prob_ensemble * np.log2(prob_ensemble + epsilon), axis=-1, keepdims=True)
         
-        entropy_scaled = scale_array(entropy, min_target_scale=min_target_scale, max_target_scale=max_target_scale)
+        entropy_scaled = scale_array(entropy, min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+                                     perc_cut=perc_cut)
         
         if save_result:
             np.save(self.ensemble_dir.ensemble_folder / f'entropy_{self.data_group}.npy', entropy_scaled)           
 
         return entropy_scaled
         
-    def surprise(self, min_target_scale=0, max_target_scale=1, save_result=False):    
+    def surprise(self, min_target_scale=0, max_target_scale=1, perc_cut=None, save_result=False):    
         epsilon = self.epsilon
         
         prob_ensemble = self.prob_mean_ensemble[..., 1:2] # Surprise is for object class (class 1)
         
         surprise = -np.log2(prob_ensemble + epsilon)
         
-        surprise_scaled = scale_array(surprise, min_target_scale=min_target_scale, max_target_scale=max_target_scale)
+        surprise_scaled = scale_array(surprise, min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+                                      perc_cut=perc_cut)
         
         if save_result:
             np.save(self.ensemble_dir.ensemble_folder / f'surprise_{self.data_group}.npy', surprise_scaled)
             
         return surprise_scaled
     
-    def weighted_surprise(self, min_target_scale=0, max_target_scale=1, save_result=False):    
+    def weighted_surprise(self, min_target_scale=0, max_target_scale=1, perc_cut=None, save_result=False):    
         epsilon = self.epsilon
         
         prob_ensemble = self.prob_mean_ensemble[..., 1:2] # Surprise is for object class (class 1)
 
         weighted_surprise = -prob_ensemble * np.log2(prob_ensemble + epsilon)
         
-        weighted_surprise_scaled = scale_array(weighted_surprise, min_target_scale=min_target_scale, max_target_scale=max_target_scale)
+        weighted_surprise_scaled = scale_array(weighted_surprise, min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+                                               perc_cut=perc_cut)
         
         if save_result:
             np.save(self.ensemble_dir.ensemble_folder / f'weightedsurprise_{self.data_group}.npy', weighted_surprise_scaled)
             
         return weighted_surprise_scaled
             
-    def prob_mean(self, min_target_scale=0, max_target_scale=1, save_result=False):
+    def prob_mean(self, min_target_scale=0, max_target_scale=1, perc_cut=None, save_result=False):
         prob_ensemble = self.prob_mean_ensemble
         
-        prob_ensemble_scaled = scale_array(prob_ensemble, min_target_scale=min_target_scale, 
-                                           max_target_scale=max_target_scale)
+        prob_ensemble_scaled = scale_array(prob_ensemble, min_target_scale=min_target_scale, max_target_scale=max_target_scale, 
+                                           perc_cut=perc_cut)
         
         if save_result:
             np.save(self.ensemble_dir.ensemble_folder / f'probmean_{self.data_group}.npy', prob_ensemble_scaled)

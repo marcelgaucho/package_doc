@@ -18,6 +18,7 @@ metric = UncertaintyMetric.Entropy
 previous_model = 'resunet'
 min_scale_uncertainty = 0
 max_scale_uncertainty = 1
+perc_cut = 2
 
 model_dirs = ['experimentos/saida_resunet_loop_2x_2b_0/', 'experimentos/saida_resunet_loop_2x_2b_1/']
 
@@ -37,7 +38,8 @@ x_dir_uncer = XDirUncertain(in_x_folder=in_x_folder, y_folder=y_folder,
                             ensemble_dir=ensembledir,
                             metric=metric, 
                             min_scale_uncertainty=min_scale_uncertainty, 
-                            max_scale_uncertainty=max_scale_uncertainty)
+                            max_scale_uncertainty=max_scale_uncertainty,
+                            perc_cut=perc_cut)
 x_dir_uncer.create()
 
 # %% Insert data

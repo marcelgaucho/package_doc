@@ -29,7 +29,8 @@ class UncertaintyMetric:
 class XDirUncertain:
     def __init__(self, in_x_folder: str, y_folder: str, out_x_folder: str, 
                  ensemble_dir: EnsembleDir, metric: UncertaintyMetric,
-                 min_scale_uncertainty=0, max_scale_uncertainty=1):
+                 min_scale_uncertainty=0, max_scale_uncertainty=1,
+                 perc_cut=None):
         self.in_x_folder = Path(in_x_folder)
         self.y_folder = Path(y_folder)
         self.out_x_folder = Path(out_x_folder)
@@ -37,21 +38,26 @@ class XDirUncertain:
         self.metric = metric
         self.min_scale_uncertainty = min_scale_uncertainty
         self.max_scale_uncertainty = max_scale_uncertainty
+        self.perc_cut = perc_cut
         
     def _calculate_uncertainty(self, data_group):
         ensemble = Ensemble(ensemble_dir=self.ensemble_dir, data_group=data_group)
         if self.metric == UncertaintyMetric.Entropy:
             return ensemble.entropy(min_target_scale=self.min_scale_uncertainty, 
-                                    max_target_scale=self.max_scale_uncertainty)
+                                    max_target_scale=self.max_scale_uncertainty,
+                                    perc_cut=self.perc_cut)
         elif self.metric == UncertaintyMetric.Surprise:
             return ensemble.surprise(min_target_scale=self.min_scale_uncertainty, 
-                                     max_target_scale=self.max_scale_uncertainty)
+                                     max_target_scale=self.max_scale_uncertainty,
+                                     perc_cut=self.perc_cut)
         elif self.metric == UncertaintyMetric.WeightedSurprise:
             return ensemble.weighted_surprise(min_target_scale=self.min_scale_uncertainty, 
-                                              max_target_scale=self.max_scale_uncertainty)
+                                              max_target_scale=self.max_scale_uncertainty,
+                                              perc_cut=self.perc_cut)
         elif self.metric == UncertaintyMetric.MeanProb:
             return ensemble.mean_prob(min_target_scale=self.min_scale_uncertainty, 
-                                      max_target_scale=self.max_scale_uncertainty)
+                                      max_target_scale=self.max_scale_uncertainty,
+                                      perc_cut=self.perc_cut)
         
     def create(self):
         # Create x dir

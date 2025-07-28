@@ -21,6 +21,7 @@ ensemble_path = r'experimentos/ensemble_dir_teste'
 
 min_target_scale = 0
 max_target_scale = 1
+perc_cut = 2
 
 # %% Calculate uncertainty metrics
 
@@ -34,19 +35,19 @@ ensemble_prob_mean = {}
 for data_group in iter(DataGroups):
     ensemble = Ensemble(ensemble_dir=ensembledir, data_group=data_group)
     
-    entropy = ensemble.entropy(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+    entropy = ensemble.entropy(min_target_scale=min_target_scale, max_target_scale=max_target_scale, perc_cut=perc_cut,
                                save_result=save_result)
     ensemble_entropy[data_group] = entropy
     
-    surprise = ensemble.surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+    surprise = ensemble.surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale, perc_cut=perc_cut,
                                  save_result=save_result)
     ensemble_surprise[data_group] = surprise
     
-    weighted_surprise = ensemble.weighted_surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+    weighted_surprise = ensemble.weighted_surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale, perc_cut=perc_cut,
                                                    save_result=save_result)
     ensemble_weighted_surprise[data_group] = weighted_surprise
     
-    prob_mean = ensemble.prob_mean(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+    prob_mean = ensemble.prob_mean(min_target_scale=min_target_scale, max_target_scale=max_target_scale, perc_cut=perc_cut,
                                    save_result=save_result)
     ensemble_prob_mean[data_group] = prob_mean 
 
