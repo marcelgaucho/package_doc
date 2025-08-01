@@ -117,7 +117,7 @@ class Ensemble:
         return weighted_surprise_scaled
             
     def prob_mean(self, min_target_scale=0, max_target_scale=1, perc_cut=None, save_result=False):
-        prob_ensemble = self.prob_mean_ensemble
+        prob_ensemble = self.prob_mean_ensemble[..., 1:2] # Probability mean is for object class (class 1)
         
         prob_ensemble_scaled = scale_array(prob_ensemble, min_target_scale=min_target_scale, max_target_scale=max_target_scale, 
                                            perc_cut=perc_cut)

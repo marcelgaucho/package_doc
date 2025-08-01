@@ -17,6 +17,9 @@ def scale_array(array: np.ndarray, min_target_scale=0, max_target_scale=1,
                 perc_cut=None):
     assert max_target_scale > min_target_scale, "Maximum value must be greater than minimum value in target scale"
     
+    if all(minmax is None for minmax in [min_target_scale, max_target_scale]):
+        return array
+    
     min_input = array.min()
     max_input = array.max()
     
