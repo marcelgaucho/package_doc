@@ -57,16 +57,23 @@ Created on Sat Nov  2 13:01:06 2024
 
 # %% Import Libraries
 
-from package_doc.extracao.patches_extraction import DirPatchExtractor
 from pathlib import Path
+import shutil
+import json
+
+import tensorflow as tf
+import numpy as np
+
+from package_doc.extracao.tile_dir import TileDir, XYTileDir
+from package_doc.extracao.tile import TileType
 
 # %% X and Y Input and Output Directories
 
-group = 'test' # train, valid or test group
+group = 'train' # train, valid or test group
 in_x_dir = fr'dataset_massachusetts_mnih_exp/{group}/input/'
 in_y_dir = fr'dataset_massachusetts_mnih_exp/{group}/maps/'
-out_x_dir = 'teste_x2/'
-out_y_dir = 'teste_y2/'
+out_x_dir = 'testes/teste_out_x_dir/'
+out_y_dir = 'testes/teste_out_y_dir/'
 
 # %% Create output directories if they don't exist
 
@@ -114,33 +121,82 @@ overwrite_dir = True # overwrite tensorflow dataset dir
 onehot_y_patches = True # One-hot y patches in tensorflow dataset export
 overwrite_info = True # overwrite metadata JSON file
 
-# %% Extract patches from dir
+# %% Create tile dir objects
 
-p_extract = DirPatchExtractor(in_x_dir=in_x_dir, 
-                              in_y_dir=in_y_dir, 
-                              out_x_dir=out_x_dir, 
-                              out_y_dir=out_y_dir,
-                              patch_size=patch_size,
-                              overlap=overlap,
-                              border_patches=border_patches,
-                              filter_nodata=filter_nodata, nodata_value=nodata_value, nodata_tolerance=nodata_tolerance,
-                              filter_object=filter_object, object_value=object_value, threshold_percentage=threshold_percentage,
-                              group=group)
-p_extract.extract_patches_from_tiles()
+x_tiledir = TileDir(in_x_dir, TileType.X)
+y_tiledir = TileDir(in_y_dir, TileType.Y)
 
-# %% Normalize the extracted X Patches
+xy_tiledir = XYTileDir(x_tiledir=x_tiledir, y_tiledir=y_tiledir)
+
+# %% Extract patches from tiles
+
+xy_tiledir.extract_patches(patch_size=patch_size, overlap=overlap, 
+                           border_patches=border_patches)
+
+# %% Filter against X patches with nodata
  
-p_extract.normalize_x_patches()
+xy_tiledir.filter_nodata(tile_type=TileType.X,
+                             nodata_value=nodata_value,
+                             nodata_tolerance=nodata_tolerance
+                         )
 
-# %% Save the extracted patches in Output Directories, in numpy and tensorflow dataset formats
+# %% Filter against Y patches with object
 
-p_extract.save_np_arrays(overwrite_arrays=overwrite_arrays)
-if group == 'train' or group == 'valid':
-    p_extract.save_tf_dataset(overwrite_dir=overwrite_dir, onehot_y_patches=onehot_y_patches)
+xy_tiledir.filter_object(threshold_percentage=threshold_percentage,
+                             object_value=object_value)
 
-# %% Save metadata dictionary to JSON
+# %% Return objects of patches
 
-p_extract.save_info_tiles(overwrite_info=overwrite_info)
+x_patches_obj, y_patches_obj = xy_tiledir.xy_concat_patches()
+
+# %% Normalize X patches
+
+x_patches_obj.normalize()
+
+# %% Get patches in numpy format
+
+x_patches_np, y_patches_np = x_patches_obj.patches, y_patches_obj.patches
+
+# %% Export arrays to files .npy
+
+x_patches_obj.save_nparray(Path(out_x_dir) / f'x_{group}.npy')
+y_patches_obj.save_nparray(Path(out_y_dir) / f'y_{group}.npy')
+
+# %% Export arrays to tensorflow dataset format
+
+# Create directory
+dataset_path = Path(out_x_dir) / f'{group}_dataset'
+try:
+    shutil.rmtree(dataset_path)
+except FileNotFoundError:
+    dataset_path.mkdir()
+
+# One-hot Y patches 
+y_patches_onehot_np = y_patches_obj.onehot()
+
+# Create and save dataset
+dataset =  tf.data.Dataset.from_tensor_slices((x_patches_np.astype(np.float16), y_patches_onehot_np))
+dataset.save(str(dataset_path))   
+
+# %% Save metadata dictionary (info tiles) to JSON
+
+# Get length and shape of tiles by X Tile Dir
+len_tiles = [len(tile_patches.patches) for tile_patches in x_tiledir.tiles_patches]
+
+shape_tiles = [tile.array.shape[:2] for tile in x_tiledir.tiles]
+
+# Repeat stride used in this script to get to all tiles
+stride = patch_size - int(patch_size * overlap)
+stride_tiles = [stride]*len(shape_tiles)
+
+# Info tiles dict
+info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 'stride_tiles': stride_tiles}
+
+# Export dict
+info_tiles_path = Path(out_y_dir) / f'info_tiles_{group}.json'
+
+with open(info_tiles_path, mode='w', encoding='utf-8') as f:
+    json.dump(info_tiles, f, sort_keys=True, ensure_ascii=False, indent=4)
 
  
 
