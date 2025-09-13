@@ -24,6 +24,7 @@ Created on Thu Mar 21 12:25:39 2024
 # %% Imports
 
 import numpy as np, os, shutil, math, pickle, time, types, gc
+from pathlib import Path
 
 # Import tensorflow related
 import tensorflow as tf
@@ -42,24 +43,24 @@ class ModelTrainer:
     early_stopping_delta = 0.01 # Delta in relation to best result for training to continue 
     def __init__(self, x_dir: str, y_dir: str, output_dir: str, model, optimizer):
         # Directories
-        self.x_dir = x_dir # Dir with X data
-        self.y_dir = y_dir # Dir with Y data
-        self.output_dir = output_dir # Dir to save Output data
+        self.x_dir = Path(x_dir) # Dir with X data
+        self.y_dir = Path(y_dir) # Dir with Y data
+        self.output_dir = Path(output_dir) # Dir to save Output data
         
         self.model = model # Model object
         
         self.optimizer = optimizer # Optimizer, has to be created outside class in order to be a singleton
         
-        self.model_path = output_dir + self.best_model_filename # Path to save model
+        self.model_path = Path(output_dir) / self.best_model_filename # Path to save model
         
     def _set_datasets(self):
         # Load Datasets
-        self.train_dataset = tf.data.Dataset.load(self.x_dir + 'train_dataset/')
-        self.valid_dataset = tf.data.Dataset.load(self.x_dir + 'valid_dataset/')
+        self.train_dataset = tf.data.Dataset.load(str(self.x_dir / 'train_dataset/'))
+        self.valid_dataset = tf.data.Dataset.load(str(self.x_dir / 'valid_dataset/'))
         
     def _set_numpy_arrays(self, convert_to_tensor=False):
         # Load Y Train, do One-Hot encoding if necessary. If specified, convert to tensor and clean memory 
-        self.y_train = np.load(self.y_dir + 'y_train.npy')        
+        self.y_train = np.load(self.y_dir / 'y_train.npy')        
         if self.y_train.shape[-1] == 1:
             self.y_train = onehot_numpy(self.y_train)
         if convert_to_tensor:    
@@ -68,7 +69,7 @@ class ModelTrainer:
             gc.collect()
         
         # Load Y Valid
-        self.y_valid = np.load(self.y_dir + 'y_valid.npy')
+        self.y_valid = np.load(self.y_dir / 'y_valid.npy')
         if self.y_valid.shape[-1] == 1:
             self.y_valid = onehot_numpy(self.y_valid)
         if convert_to_tensor:    
@@ -77,14 +78,14 @@ class ModelTrainer:
             gc.collect()
         
         # Load X Train
-        self.x_train = np.load(self.x_dir + 'x_train.npy')
+        self.x_train = np.load(self.x_dir / 'x_train.npy')
         if convert_to_tensor:  
             with tf.device('/CPU:0'):
                 self.x_train = tf.convert_to_tensor(self.x_train)
             gc.collect() 
         
         # Load X Valid
-        self.x_valid = np.load(self.x_dir + 'x_valid.npy')
+        self.x_valid = np.load(self.x_dir / 'x_valid.npy')
         if convert_to_tensor:  
             with tf.device('/CPU:0'):
                 self.x_valid = tf.convert_to_tensor(self.x_valid)
@@ -170,7 +171,7 @@ class ModelTrainer:
         show_training_plot(result_history, metric_name=metric_name, save=True, save_path=self.output_dir)
         
         # Write model summary of model used in text file and list of arguments to the method
-        with open(os.path.join(self.output_dir, 'model_configuration_used.txt'), 'w') as f:
+        with open(self.output_dir / 'model_configuration_used.txt', 'w') as f:
             model.summary(print_fn=lambda x: f.write(x + '\n'))
             f.write(str(dict_parameters) + '\n')
         
@@ -342,19 +343,19 @@ class ModelTrainer:
         end = time.time()
         
         # Save history and total time in text and in pickle file
-        with open(os.path.join(self.output_dir, 'history_best_model.txt'), 'w') as f:
+        with open(self.output_dir / 'history_best_model.txt', 'w') as f:
             f.write('Resultado = \n')
             f.write(str(result_history))
             f.write(f'\nTempo total gasto no treinamento foi de {end-start} segundos, {(end-start)/3600:.1f} horas.')
             
-        with open(os.path.join(self.output_dir, 'history_pickle_best_model.pickle'), "wb") as fp: 
+        with open(self.output_dir / 'history_pickle_best_model.pickle', "wb") as fp: 
             pickle.dump(result_history, fp)
             
         # Save output in plot
         show_training_plot(result_history, metric_name=metric_name, save=True, save_path=self.output_dir)
         
         # Write model summary of model used in text file and list of arguments to the method
-        with open(os.path.join(self.output_dir, 'model_configuration_used.txt'), 'w') as f:
+        with open(self.output_dir / 'model_configuration_used.txt', 'w') as f:
             model.summary(print_fn=lambda x: f.write(x + '\n'))
             f.write(str(dict_parameters) + '\n')
         

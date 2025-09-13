@@ -43,17 +43,8 @@ Created on Sat Nov  2 13:01:06 2024
 # and to False in test group, to not filter
 # these patches, in order to build the mosaics 
 
-# if overwrite_arrays is set to True, the arrays written in the output directories
-# overwrite the existent arrays
-
-# if overwrite_dir is set to True, the tensorflow dataset directory is overwritten in
-# the output directory
-
-# if onehot_y_patches is set to True, the y patches are one-hot codified when exporting
-# to the tensorflow dataset format. This is the default behavior.
-
-# if overwrite_info is set to True, the JSON metadata is overwritten 
-# in the output directory
+# The exported Y arrays in .npy format have only one channel
+# But the exported tensorflow dataset has the Y array in one-hot format 
 
 # %% Import Libraries
 
@@ -114,12 +105,6 @@ else: # group == 'test'
     filter_object = False
     object_value = 1
     threshold_percentage = 1
-
-# Export parameters
-overwrite_arrays = True # overwrite .npy files
-overwrite_dir = True # overwrite tensorflow dataset dir
-onehot_y_patches = True # One-hot y patches in tensorflow dataset export
-overwrite_info = True # overwrite metadata JSON file
 
 # %% Create tile dir objects
 

@@ -106,7 +106,7 @@ def show_training_plot(history, metric_name='accuracy', save=False, save_path=r'
     
     # Show or save plot
     if save:
-        plt.savefig(save_path+save_name)
+        plt.savefig(save_path / save_name)
         plt.close()
     else:
         plt.show(block=False)
