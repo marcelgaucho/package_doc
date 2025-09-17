@@ -119,16 +119,18 @@ xy_tiledir.extract_patches(patch_size=patch_size, overlap=overlap,
                            border_patches=border_patches)
 
 # %% Filter against X patches with nodata
- 
-xy_tiledir.filter_nodata(tile_type=TileType.X,
-                             nodata_value=nodata_value,
-                             nodata_tolerance=nodata_tolerance
-                         )
+
+if filter_nodata: 
+    xy_tiledir.filter_nodata(tile_type=TileType.X,
+                                 nodata_value=nodata_value,
+                                 nodata_tolerance=nodata_tolerance
+                             )
 
 # %% Filter against Y patches with object
 
-xy_tiledir.filter_object(threshold_percentage=threshold_percentage,
-                             object_value=object_value)
+if filter_object:
+    xy_tiledir.filter_object(threshold_percentage=threshold_percentage,
+                                 object_value=object_value)
 
 # %% Return objects of patches
 
