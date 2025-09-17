@@ -207,11 +207,11 @@ class RelaxedMetricCalculator:
             raise Exception("Metrics weren't calculated. First is necessary to "
                             "calculate metrics with the method calculate_metrics")
         
-        with open(output_dir + f'relaxed_metrics_{group}_{self.buffer_px}px.json', 'w') as f:
+        with open(output_dir / f'relaxed_metrics_{group}_{self.buffer_px}px.json', 'w') as f:
             json.dump(self.metrics, f)
             
         if export_ap_lists:
-            with open(output_dir + f'avg_precision_lists_{group}_{self.buffer_px}px.pickle', "wb") as fp: 
+            with open(output_dir / f'avg_precision_lists_{group}_{self.buffer_px}px.pickle', "wb") as fp: 
                 pickle.dump(self.ap_lists, fp)
             
             

@@ -150,12 +150,12 @@ class ModelTrainer:
         end = time.time()
         
         # Save history and total time in text and in pickle file
-        with open(os.path.join(self.output_dir, 'history_best_model.txt'), 'w') as f:
+        with open(self.output_dir / 'history_best_model.txt', 'w') as f:
             f.write('Resultado = \n')
             f.write(str(result_history))
             f.write(f'\nTempo total gasto no treinamento foi de {end-start} segundos, {(end-start)/3600:.1f} horas.')
             
-        with open(os.path.join(self.output_dir, 'history_pickle_best_model.pickle'), "wb") as fp: 
+        with open(self.output_dir / 'history_pickle_best_model.pickle', "wb") as fp: 
             pickle.dump(result_history, fp)
             
         # Use first metric of list of validation metrics to plot history
