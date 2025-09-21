@@ -22,7 +22,7 @@ class UncertaintyMetric:
     Entropy = 'entropy'
     Surprise = 'surprise'
     WeightedSurprise = 'weightedsurprise'
-    MeanProb = 'meanprob'
+    ProbMean = 'probmean'
 
 # %% Class for X with Uncertainty dir
 
@@ -54,7 +54,7 @@ class XDirUncertain:
             return ensemble.weighted_surprise(min_target_scale=self.min_scale_uncertainty, 
                                               max_target_scale=self.max_scale_uncertainty,
                                               perc_cut=self.perc_cut)
-        elif self.metric == UncertaintyMetric.MeanProb:
+        elif self.metric == UncertaintyMetric.ProbMean:
             return ensemble.mean_prob(min_target_scale=self.min_scale_uncertainty, 
                                       max_target_scale=self.max_scale_uncertainty,
                                       perc_cut=self.perc_cut)

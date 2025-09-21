@@ -24,14 +24,14 @@ class MosaicGenerator:
         self.shape_tiles = info_tiles['shape_tiles']
         self.stride_tiles = info_tiles['stride_tiles']
         
-        self.tiles_dir = tiles_dir
+        self.tiles_dir = Path(tiles_dir)
         
-        self.output_dir = output_dir
+        self.output_dir = Path(output_dir)
         
         self.mosaics = None
         
     def _set_labels_paths(self):
-        self.labels_paths = [str(path) for path in Path(self.tiles_dir).iterdir() 
+        self.labels_paths = [path for path in self.tiles_dir.iterdir() 
                              if path.suffix=='.tiff' or path.suffix=='.tif']
         self.labels_paths.sort()
         
@@ -68,15 +68,15 @@ class MosaicGenerator:
     def save_mosaics(self, prefix='pred'):
         mosaics = stack_uneven(self.mosaics)[..., np.newaxis] # Transform mosaics list to array
         
-        np.save(Path(self.output_dir)/f'{prefix}_mosaics.npy', mosaics)
+        np.save(self.output_dir / f'{prefix}_mosaics.npy', mosaics)
         
     def export_mosaics(self, prefix='outmosaic'):
         self._set_labels_paths() # Set list of paths of reference tiles
         
         # Export predictions mosaics
         for mosaic, label_path in zip(self.mosaics, self.labels_paths):
-            outmosaic_basename = prefix + '_' + Path(label_path).stem + '.tif'
-            outmosaic_path = str(Path(self.output_dir)/outmosaic_basename)
+            outmosaic_basename = prefix + '_' + label_path.stem + '.tif'
+            outmosaic_path = str(self.output_dir / outmosaic_basename)
 
             save_raster_reference(in_raster_path=label_path,
                                   out_raster_path=outmosaic_path, 
