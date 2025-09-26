@@ -11,37 +11,30 @@ Created on Wed Jul 23 17:10:16 2025
 
 import shutil
 from pathlib import Path
-from .ensemble import DataGroups, Ensemble, EnsembleDir
+from .ensemb import DataGroups, Ensemble
 import numpy as np
 from ..treinamento.utils import onehot_numpy
 from tensorflow.data import Dataset
-
-# %% Enumerated constant for uncertainty metrics
-
-class UncertaintyMetric:
-    Entropy = 'entropy'
-    Surprise = 'surprise'
-    WeightedSurprise = 'weightedsurprise'
-    ProbMean = 'probmean'
+from .utils import UncertaintyMetric
 
 # %% Class for X with Uncertainty dir
 
 class XDirUncertain:
     def __init__(self, in_x_folder: str, y_folder: str, out_x_folder: str, 
-                 ensemble_dir: EnsembleDir, metric: UncertaintyMetric,
+                 model_dirs: list[str], metric: UncertaintyMetric,
                  min_scale_uncertainty=0, max_scale_uncertainty=1,
                  perc_cut=None):
         self.in_x_folder = Path(in_x_folder)
         self.y_folder = Path(y_folder)
         self.out_x_folder = Path(out_x_folder)
-        self.ensemble_dir = ensemble_dir
+        self.model_dirs = model_dirs
         self.metric = metric
         self.min_scale_uncertainty = min_scale_uncertainty
         self.max_scale_uncertainty = max_scale_uncertainty
         self.perc_cut = perc_cut
         
     def _calculate_uncertainty(self, data_group):
-        ensemble = Ensemble(ensemble_dir=self.ensemble_dir, data_group=data_group)
+        ensemble = Ensemble(model_dirs=self.model_dirs, data_group=data_group)
         if self.metric == UncertaintyMetric.Entropy:
             return ensemble.entropy(min_target_scale=self.min_scale_uncertainty, 
                                     max_target_scale=self.max_scale_uncertainty,

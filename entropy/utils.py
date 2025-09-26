@@ -10,6 +10,8 @@ Created on Wed Jul 23 15:46:21 2025
 # %% Imports
 
 import numpy as np
+from enum import Enum 
+
 
 # %% Function to scale array 
 
@@ -33,3 +35,18 @@ def scale_array(array: np.ndarray, min_target_scale=0, max_target_scale=1,
     array_scaled = array_0_1 * (max_target_scale - min_target_scale) + min_target_scale # scale to [min_target_scale, max_target_scale]
 
     return array_scaled   
+
+# %% Enumerated constant for data groups
+
+class DataGroups(str, Enum):
+    Train = 'train'
+    Valid = 'valid'
+    Test = 'test' 
+
+# %% Enumerated constant for uncertainty metrics
+
+class UncertaintyMetric(str, Enum):
+    Entropy = 'entropy'
+    Surprise = 'surprise'
+    WeightedSurprise = 'weightedsurprise'
+    ProbMean = 'probmean'

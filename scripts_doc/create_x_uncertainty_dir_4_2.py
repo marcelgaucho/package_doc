@@ -9,33 +9,33 @@ Created on Fri Jul 25 13:08:01 2025
 
 # %% Imports
 
-from package_doc.entropy.ensemble import EnsembleDir
-from package_doc.entropy.dir_uncertain import XDirUncertain, UncertaintyMetric
+from package_doc.entropy.ensemb import Ensemble
+from package_doc.entropy.dir_uncertain import XDirUncertain 
+from package_doc.entropy.utils import UncertaintyMetric
 
 # %% Information to calculate entropy
 
 metric = UncertaintyMetric.Entropy
-previous_model = 'resunet'
+previous_models = ['resunet']
 min_scale_uncertainty = 0
 max_scale_uncertainty = 1
 perc_cut = 2
 
-model_dirs = ['experimentos/saida_resunet_loop_2x_2b_0/', 'experimentos/saida_resunet_loop_2x_2b_1/']
+model_dirs = ['experimentos1/saidas1/resunet_0/', 'experimentos1/saidas1/resunet_1/']
 
-ensemble_path = r'experimentos/ensemble_dir_teste/'
+in_x_folder = 'experimentos1/x_dir'
+y_folder = 'experimentos1/y_dir'
 
-in_x_folder = 'experimentos/x_dir'
-y_folder = 'experimentos/y_dir'
- 
-out_x_folder = f'experimentos/x_{metric}_{previous_model}_dir'
+previous_models_str = '_'.join(previous_models)
+out_x_folder = f'experimentos1/x_{metric}_{previous_models_str}_dir'
 
 # %% Create directory
 
-ensembledir = EnsembleDir(ensemble_folder=ensemble_path, model_dirs=model_dirs)
+ensemble = Ensemble(model_dirs=model_dirs)
 
 x_dir_uncer = XDirUncertain(in_x_folder=in_x_folder, y_folder=y_folder, 
                             out_x_folder=out_x_folder, 
-                            ensemble_dir=ensembledir,
+                            model_dirs=model_dirs,
                             metric=metric, 
                             min_scale_uncertainty=min_scale_uncertainty, 
                             max_scale_uncertainty=max_scale_uncertainty,

@@ -42,7 +42,7 @@ uncertainty_array = np.load(folder_uncertainty / f'{model_name}_{metric}_{data_g
 with open(y_dir / 'info_tiles_test.json') as fp:   
     info_tiles_test = json.load(fp)
     
-# Build and export mosaics for entropy
+# Build and export mosaics for metric
 mosaics = MosaicGenerator(test_array=uncertainty_array, 
                           info_tiles=info_tiles_test, 
                           tiles_dir=label_tiles_dir,

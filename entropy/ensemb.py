@@ -8,16 +8,8 @@ Created on Fri Sep 19 22:50:19 2025
 # %% Import Libraries
 
 from pathlib import Path
-from enum import Enum 
 import numpy as np
-from package_doc.entropy.utils import scale_array
-
-# %% Enumerated constant for data groups
-
-class DataGroups(str, Enum):
-    Train = 'train'
-    Valid = 'valid'
-    Test = 'test' 
+from .utils import scale_array, DataGroups
 
 # %%
 
