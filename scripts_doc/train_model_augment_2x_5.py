@@ -62,9 +62,9 @@ n_classes = 2
 
 # x_dir = r'entrada/'
 # y_dir = r'y_directory/'
-x_dir = r'x_entropy_resunet1/'
-y_dir = r'teste_y1/'
-output_dir = fr'saida_entropy_{model_type}_loop_2x_{batch_size}b/'
+x_dir = r'experimentos1/saidas1/x_entropy_resunet_dir'
+y_dir = r'experimentos1/y_dir'
+output_dir = fr'experimentos1/saidas2/{model_type}_1/'
 
 
 # %% Imports from package

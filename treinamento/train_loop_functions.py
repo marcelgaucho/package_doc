@@ -57,6 +57,33 @@ def test_step(x, y, model, loss_fn, metrics_val, input_tensor=None):
 def vectorized_map(map_augment_function, tuple_x_y):
     return tf.vectorized_map(map_augment_function, tuple_x_y)
 
+
+# %% Normalize tensor to specified range
+
+def scale_tensor_uncertainty(batch_tensor, min_target_scale=0, max_target_scale=1):
+    assert max_target_scale > min_target_scale, "Maximum value must be greater than minimum value in target scale"
+
+    if all(minmax is None for minmax in [min_target_scale, max_target_scale]):
+        return batch_tensor
+    
+    # Mask tensor to use to normalize tensor range only of uncertainty
+    mask = tf.concat(
+           (tf.ones(batch_tensor.shape[:3] + (batch_tensor.shape[3]-1,), dtype=tf.float16),
+           tf.zeros(batch_tensor.shape[:3] + (1,), dtype=tf.float16)), axis=-1,
+           )
+    
+    # Compute min and max from uncertainty part of the tensor
+    min_input = tf.reduce_min(batch_tensor[:, :, :, -1:])
+    max_input = tf.reduce_max(batch_tensor[:, :, :, -1:])
+    
+    tensor_0_1 = (batch_tensor - min_input) / (max_input - min_input) # normalize to [0, 1]
+    tensor_scaled = tensor_0_1 * (max_target_scale - min_target_scale) + min_target_scale # scale to [min_target_scale, max_target_scale]
+
+    # Return batch tensor with uncertainty scaled     
+    batch_tensor = batch_tensor*mask + tensor_scaled*(1-mask)
+
+    return batch_tensor 
+
 # %% Do the train loop
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
@@ -114,6 +141,17 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
 
             # Train Step
             if 'input_tensor' in loss_parameters_names:
+                # # Mask tensor to use to normalize tensor range only of uncertainty
+                # mask = tf.concat(
+                #        (tf.ones(x_batch_train.shape[:3] + (x_batch_train.shape[3]-1,), dtype=tf.float16),
+                #        tf.zeros(x_batch_train.shape[:3] + (1,), dtype=tf.float16)), axis=-1,
+                #        )
+                # x_batch_train = x_batch_train*mask +  (x_batch_train * (1 - 0.5) + 0.5)*(1-mask) # Scale uncertainty to [0.5, 1]            
+                # x_batch_train[..., -1] = x_batch_train[..., -1] * (1 - 0.5) + 0.5 # Scale uncertainty to [0.5, 1]
+                
+                # Scale uncertainty
+                x_batch_train = scale_tensor_uncertainty(batch_tensor=x_batch_train, min_target_scale=0.5, max_target_scale=1)
+                
                 loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train,
                                         input_tensor=x_batch_train)
             else:
@@ -143,6 +181,16 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         for x_batch_val, y_batch_val in valid_dataset:
             # Validation step
             if 'input_tensor' in loss_parameters_names:
+                # mask = tf.concat(
+                #        (tf.ones(x_batch_val.shape[:3] + (x_batch_val.shape[3]-1,), dtype=tf.float16),
+                #        tf.zeros(x_batch_val.shape[:3] + (1,), dtype=tf.float16)), axis=-1,
+                #        )
+                # x_batch_val = x_batch_val*mask +  (x_batch_val * (1 - 0.5) + 0.5)*(1-mask) # Scale uncertainty to [0.5, 1] 
+                # x_batch_val[..., -1] = x_batch_val[..., -1] * (1 - 0.5) + 0.5 # Scale uncertainty to [0.5, 1]
+                
+                # Scale uncertainty
+                x_batch_val = scale_tensor_uncertainty(batch_tensor=x_batch_val, min_target_scale=0.5, max_target_scale=1)
+                
                 loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val,
                                        input_tensor=x_batch_val)
             else:
