@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Sep 13 12:46:12 2025
+Created on Thu Oct  2 14:08:01 2025
 
 @author: Marcel
 """
-
-# Evaluate a trained model in the output directory
 
 # %% Disable GPU and limit number of CPU threads (and thus the number of cpu cores) to use in evaluation
 
@@ -29,19 +27,21 @@ tf.config.threading.set_intra_op_parallelism_threads(cpu_threads)
 from package_doc.avaliacao.evaluator import ModelEvaluator
 
 import argparse
+import re
+from pathlib import Path
 
 # %% Create parser
 
-parser = argparse.ArgumentParser(description='Evaluate model')
+parser = argparse.ArgumentParser(description='Evaluate an ensemble of models')
 
-# %% Add arguments
+# %% Add arugments
 
 # Input dirs
 parser.add_argument('x_dir', type=str, help='Enter the X directory for training')
 parser.add_argument('y_dir', type=str, help='Enter the Y directory for training')
 
-# Output dir
-parser.add_argument('-od', '--out_dir', type=str, help='Enter the output directory for the trained model',
+# Output base dir
+parser.add_argument('-od', '--out_dir', type=str, help='Enter the output directory for the trained models',
                     required=True)
 
 # Label tiles dir
@@ -62,12 +62,12 @@ parser.add_argument('-g', '--groups', metavar='group_list', type=str,
 parser.add_argument('-ap', '--avg_precision', action='store_true',
                     help='Include average precision in evaluation')
 
-# %% Parse args 
+# %% Parse args
 
 args = parser.parse_args()
-# args = parser.parse_args(['experimentos/x_dir',
-#                           'experimentos/y_dir',
-#                           '-od', 'experimentos/saida_resunet_loop_2x_2b_1',
+# args = parser.parse_args(['experimentos1/x_dir',
+#                           'experimentos1/y_dir',
+#                           '-od', 'experimentos1/out/resunet',
 #                           '-ld', 'dataset_massachusetts_mnih_exp/test/maps',
 #                           '-bf', '3',
 #                           '-g', 'valid', 'test',
@@ -78,7 +78,7 @@ x_dir = args.x_dir
 y_dir = args.y_dir
 
 # Output directory
-output_dir = args.out_dir
+output_dir = Path(args.out_dir)
 
 # Label tile directory of test group
 label_dir = args.label_dir
@@ -100,25 +100,28 @@ evaluate_test = True if 'test' in groups else False
 
 prefix = 'outmosaic'
 
-# %% Create evaluator instance
+# %% Model directories in base dir
 
-evaluator = ModelEvaluator(x_dir=x_dir, y_dir=y_dir, output_dir=output_dir,
-                           label_tiles_dir=label_dir)
+model_dirs = [d for d in output_dir.iterdir() if re.match('m_\d', d.name) and d.is_dir()]
 
-# %% Evaluate model groups (valid and test are default)
+# %% Evaluate loop
 
-evaluator.evaluate_model(evaluate_train=evaluate_train, 
-                         evaluate_valid=evaluate_valid, 
-                         evaluate_test=evaluate_test,
-                         buffers_px=buffers,
-                         include_avg_precision=include_avg_precision)
-
-
-# %% Build mosaics
-
-evaluator.build_test_mosaics(prefix=prefix)
-
-
-# %% Evaluate mosaics
-
-evaluator.evaluate_mosaics(buffers_px=buffers, include_avg_precision=include_avg_precision) 
+for d in model_dirs:
+    # Create evaluator instance
+    evaluator = ModelEvaluator(x_dir=x_dir, y_dir=y_dir, output_dir=d,
+                               label_tiles_dir=label_dir)
+    
+    # Evaluate model groups
+    evaluator.evaluate_model(evaluate_train=evaluate_train, 
+                             evaluate_valid=evaluate_valid, 
+                             evaluate_test=evaluate_test,
+                             buffers_px=buffers,
+                             include_avg_precision=include_avg_precision)
+    
+    # Build mosaics
+    evaluator.build_test_mosaics(prefix=prefix)
+    
+    # Evaluate mosaics    
+    evaluator.evaluate_mosaics(buffers_px=buffers, include_avg_precision=include_avg_precision) 
+    
+    

@@ -71,13 +71,13 @@ parser.add_argument('--n_models', type=int, help='Enter the number of models in 
 # %% Parse args 
 
 # args = parser.parse_args()
-args = parser.parse_args(['experimentos1/x_dir',
+args = parser.parse_args(['experimentos1/out/resunet/x_dir',
                           'experimentos1/y_dir',
-                          '-od', 'experimentos1/out/resunet',
+                          '-od', 'experimentos1/out/resunet/resunet',
                           '-b', '2',
                           '-m', 'resunet',
                           '-px', '3',
-                          '-l', 'cross',
+                          '-l', 'custom',
                           '--n_models', '2'])
 
 # X and Y directories
@@ -123,6 +123,10 @@ from package_doc.treinamento.custom_loss import CustomEntropyLoss
 # %% Loss Function
 
 loss_fn = CategoricalCrossentropy() if loss == 'cross' else CustomEntropyLoss()
+
+# %% Create output dir of models
+
+outputs_dir.mkdir(exist_ok=True)
 
 # %% Train loop
 
