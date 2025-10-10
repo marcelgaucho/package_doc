@@ -16,6 +16,8 @@ import pdb
 
 import argparse
 
+import numpy as np
+
 # %% Limit GPU Memory or, in case of no gpu available, limit number of threads used
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
@@ -44,11 +46,6 @@ parser.add_argument('y_dir', type=str, help='Enter the Y directory for training'
 parser.add_argument('-od', '--out_dir', type=str, help='Enter the output directory for the trained model',
                     required=True)
 
-# Patch size and number of channels
-parser.add_argument('-p', '--patch', metavar='patch_size', type=int, help='Enter the patch size of train data',
-                    default=256)
-parser.add_argument('-c', '--channels', metavar='number_of_channels', type=int, help='Enter the number of channels of train data')
-
 # Batch size
 parser.add_argument('-b', '--batch', metavar='batch_size', type=int, help='Enter the batch size used for training',
                     default=16)
@@ -74,8 +71,6 @@ args = parser.parse_args()
 # args = parser.parse_args(['experimentos/x_dir',
 #                           'experimentos/y_dir',
 #                           '-od', 'experimentos/saidas1/resunet_0',
-#                           '-p', '256',
-#                           '-c', '3',
 #                           '-b', '2',
 #                           '-m', 'resunet',
 #                           '-px', '3',
@@ -87,10 +82,6 @@ y_dir = args.y_dir
 
 # Output directory
 output_dir = args.out_dir
-
-# Patch size and number of channels
-patch_size = args.patch
-channels = args.channels
 
 # Batch size
 batch_size = args.batch
@@ -106,8 +97,14 @@ loss = args.loss
 
 # %% Input shape and numper of classes
 
-input_shape = (patch_size, patch_size, channels)
+# Get array without opening array into memory
+with open(x_dir / 'x_train.npy', 'rb') as f:
+    major, minor = np.lib.format.read_magic(f)
+    shape, fortran_order, dtype = np.lib.format.read_array_header_1_0(f)
+    
+input_shape = shape[1:] # (patch_size, patch_size, channels)
 n_classes = 2
+
 
 # %% Imports from package
 

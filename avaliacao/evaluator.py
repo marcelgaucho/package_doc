@@ -32,7 +32,7 @@ class ModelEvaluator:
         self.output_dir = Path(output_dir)
         self.label_tiles_dir = Path(label_tiles_dir)
         
-        self.model = load_model(Path(output_dir) / 'best_model.keras', compile=False, custom_objects={"Patches": Patches, 
+        self.model = load_model(Path(output_dir) / 'best_model.h5', compile=False, custom_objects={"Patches": Patches, 
                                                                                                       "MixVisionTransformer": MixVisionTransformer,
                                                                                                       "SegFormerHead": SegFormerHead,
                                                                                                       "ResizeLayer": ResizeLayer})

@@ -60,6 +60,7 @@ def vectorized_map(map_augment_function, tuple_x_y):
 
 # %% Normalize tensor to specified range
 
+@tf.function
 def scale_tensor_uncertainty(batch_tensor, min_target_scale=0, max_target_scale=1):
     assert max_target_scale > min_target_scale, "Maximum value must be greater than minimum value in target scale"
 
@@ -150,9 +151,10 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 # x_batch_train[..., -1] = x_batch_train[..., -1] * (1 - 0.5) + 0.5 # Scale uncertainty to [0.5, 1]
                 
                 # Scale uncertainty
-                x_batch_train = scale_tensor_uncertainty(batch_tensor=x_batch_train, min_target_scale=0.5, max_target_scale=1)
+                # x_batch_train = scale_tensor_uncertainty(batch_tensor=x_batch_train, min_target_scale=0.5, max_target_scale=1)
                 
-                loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train,
+                loss_value = train_step(scale_tensor_uncertainty(batch_tensor=x_batch_train, min_target_scale=0.5, max_target_scale=1), 
+                                        y_batch_train, model, loss_fn, optimizer, metrics_train,
                                         input_tensor=x_batch_train)
             else:
                 loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
@@ -189,9 +191,10 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 # x_batch_val[..., -1] = x_batch_val[..., -1] * (1 - 0.5) + 0.5 # Scale uncertainty to [0.5, 1]
                 
                 # Scale uncertainty
-                x_batch_val = scale_tensor_uncertainty(batch_tensor=x_batch_val, min_target_scale=0.5, max_target_scale=1)
+                # x_batch_val = scale_tensor_uncertainty(batch_tensor=x_batch_val, min_target_scale=0.5, max_target_scale=1)
                 
-                loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val,
+                loss_value = test_step(x_batch_val, 
+                                       y_batch_val, model, loss_fn, metrics_val,
                                        input_tensor=x_batch_val)
             else:
                 loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val)
