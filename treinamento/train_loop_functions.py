@@ -17,11 +17,11 @@ from inspect import signature
 # %% Do a train step
 
 @tf.function
-def train_step(x, y, model, loss_fn, optimizer, metrics_train, input_tensor=None):
+def train_step(x, y, model, loss_fn, optimizer, metrics_train, input_tensor=False):
     with tf.GradientTape() as tape:
         model_result = model(x, training=True)
-        if input_tensor is not None:
-            loss_value = loss_fn(y, model_result, input_tensor=input_tensor)
+        if input_tensor:
+            loss_value = loss_fn(y, model_result, input_tensor=x)
         else:
             loss_value = loss_fn(y, model_result)
     
@@ -38,10 +38,10 @@ def train_step(x, y, model, loss_fn, optimizer, metrics_train, input_tensor=None
 # %% Do a validation step
 
 @tf.function
-def test_step(x, y, model, loss_fn, metrics_val, input_tensor=None):
+def test_step(x, y, model, loss_fn, metrics_val, input_tensor=False):
     val_result = model(x, training=False)
-    if input_tensor is not None:
-        loss_value = loss_fn(y, val_result, input_tensor=input_tensor)
+    if input_tensor:
+        loss_value = loss_fn(y, val_result, input_tensor=x)
     else:
         loss_value = loss_fn(y, val_result)
         
@@ -155,7 +155,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 
                 loss_value = train_step(scale_tensor_uncertainty(batch_tensor=x_batch_train, min_target_scale=0.5, max_target_scale=1), 
                                         y_batch_train, model, loss_fn, optimizer, metrics_train,
-                                        input_tensor=x_batch_train)
+                                        input_tensor=True)
             else:
                 loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
             
@@ -195,7 +195,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 
                 loss_value = test_step(x_batch_val, 
                                        y_batch_val, model, loss_fn, metrics_val,
-                                       input_tensor=x_batch_val)
+                                       input_tensor=True)
             else:
                 loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val)
 
