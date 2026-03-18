@@ -11,7 +11,10 @@ import numpy as np
 from pathlib import Path
 
 from .patches import XPatches, YPatches
-from .tile import TileType, tile
+from .tile import tile
+from .tile_type import TileType
+
+from typing import List
 
 # %% Aggregate class of tiles of certain type (XTile or YTile)
 
@@ -26,84 +29,120 @@ class TileDir:
         self.tiles = [tile(tile_path, tile_type) for 
                       tile_path in self.tiles]
         
-        self.tiles_patches = None 
-        
         self.dir_path = dir_path
         self.tile_type = tile_type
 
     def extract_patches(self, patch_size: int=256, overlap: float=0.25, border_patches: bool=False):
-        tiles_patches = []
         for tile_obj in self.tiles:
-            if self.tile_type == TileType.X:
-                tiles_patches.append( tile_obj.extract_patches(patch_size=patch_size, overlap=overlap,
-                                                          border_patches=border_patches).tile_patches ) 
-            elif self.tile_type == TileType.Y:
-                tiles_patches.append( tile_obj.extract_patches(patch_size=patch_size, overlap=overlap,
-                                                          border_patches=border_patches).tile_patches ) 
+            tile_obj.extract_patches(patch_size=patch_size, overlap=overlap,
+                                     border_patches=border_patches) 
        
-        self.tiles_patches = tiles_patches # Store in object
+        return [tile_obj.patches for tile_obj in self.tiles]
+    
+    def normalize_patches(self):
+        ''' Normalization according to all tiles in the directory '''
+        assert all(t.patches is not None for t in self.tiles), 'Patches must first be extracted with extrac_patches method'
+        assert self.tile_type == TileType.X, 'Only X tiles can be normalized'
         
-        return self
+        # Concatenate and normalize patches
+        all_patches = self.concat_patches()
+        
+        all_patches = all_patches.normalize()
+        
+        # Update patches in tiles
+        patch_index = 0 # initial patch index to extract patches of a tile 
+        for t in self.tiles:
+            t.patches = XPatches(all_patches[patch_index : patch_index+len(t.patches.array), ...])
+            patch_index += len(t.patches.array)
+            
+        return [t.patches for t in self.tiles]          
 
     def concat_patches(self):
-        patches = np.concatenate([p.patches for p in self.tiles_patches], axis=0)
+        patches = np.concatenate([t.patches.array for t in self.tiles], axis=0)
         
         if self.tile_type == TileType.X:
             return XPatches(patches)
         elif self.tile_type == TileType.Y:
             return YPatches(patches)
         
-# %% Composite Class of X and Y tile dirs
+    def nodata_indexes(self, nodata_value=(255, 255, 255), nodata_tolerance=0):
+        return [tile.nodata_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
+                for tile in self.tiles]
+        
+    def object_indexes(self, threshold_percentage=1, object_value=1):
+        assert self.tile_type == TileType.Y, 'Only Y tiles can be filtered by object'
+        return [tile.object_indexes(threshold_percentage=threshold_percentage, object_value=object_value) 
+                for tile in self.tiles]
+    
+    def preprocess_reference_t2(self, ytiledir_t2: 'TileDir', dilation_px=2, 
+                                erosion_px=0):
+        ''' This object has reference T1, while the reference T2 is passed in a parameter  '''
+        assert ytiledir_t2.tile_type == TileType.Y, 'T2 Tile Dir must be of Y type'
+        assert self.tile_type == TileType.Y, 'T1 Tile Dir must be of Y type'
+        
+        for ytile_t1, ytile_t2 in zip(self.tiles, ytiledir_t2.tiles):
+            ytile_t1.preprocess_reference_t2(ytile_t2=ytile_t2, dilation_px=dilation_px,
+                                             erosion_px=erosion_px)
+            
+        return [ytile_t2 for ytile_t2 in ytiledir_t2.tiles]
+            
+        
+        
+    def __repr__(self):
+        return f'Tile Dir {self.tile_type}: {self.dir_path}'
+        
+# %% Composite Class of Xs and Ys tile dirs
 
-class XYTileDir:
-    def __init__(self, x_tiledir: TileDir, y_tiledir: TileDir):
-        self.x_tiledir = x_tiledir
-        self.y_tiledir = y_tiledir
+class XsYsTileDir:
+    def __init__(self, x_tiledirs: List[TileDir], y_tiledirs: List[TileDir]):
+        self.x_tiledirs = x_tiledirs
+        self.y_tiledirs = y_tiledirs
+        
+        self.x_tiledirs_patches = []
+        self.y_tiledirs_patches = []
         
     def extract_patches(self, patch_size: int=256, overlap: float=0.25, border_patches: bool=False):
-        self.x_tiledir.extract_patches(patch_size=patch_size, overlap=overlap,
-                                  border_patches=border_patches)
-        self.y_tiledir.extract_patches(patch_size=patch_size, overlap=overlap,
-                                       border_patches=border_patches)
+        for x_tiledir in self.x_tiledirs:
+            x_tiledir.extract_patches(patch_size=patch_size, overlap=overlap,
+                                      border_patches=border_patches)
         
-        return self
-        
-    def filter_nodata(self, tile_type: TileType, nodata_value=(255, 255, 255), nodata_tolerance=0):
-        x_tiles_patches_filtered, y_tiles_patches_filtered = [], []        
-        
-        for x_tile_patches, y_tile_patches in zip(self.x_tiledir.tiles_patches, self.y_tiledir.tiles_patches):
-            if tile_type == TileType.X:
-                nodata_indexes = x_tile_patches.nodata_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
-            elif tile_type == TileType.Y:
-                nodata_indexes = y_tile_patches.nodata_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
-                
-            x_tile_patches_filtered = XPatches(x_tile_patches.patches[nodata_indexes])
-            y_tile_patches_filtered = YPatches(y_tile_patches.patches[nodata_indexes])
+        for y_tiledir in self.y_tiledirs:
+            y_tiledir.extract_patches(patch_size=patch_size, overlap=overlap,
+                                      border_patches=border_patches)
             
-            x_tiles_patches_filtered.append(x_tile_patches_filtered)
-            y_tiles_patches_filtered.append(y_tile_patches_filtered)
-            
-        self.x_tiledir.tiles_patches = x_tiles_patches_filtered
-        self.y_tiledir.tiles_patches = y_tiles_patches_filtered
+        return [x_tiledir.concat_patches() for x_tiledir in self.x_tiledirs], [y_tiledir.concat_patches() for y_tiledir in self.y_tiledirs]
         
-        return self
-        
-    def filter_object(self, threshold_percentage=1, object_value=1):
-        x_tiles_patches_filtered, y_tiles_patches_filtered = [], []  
-        
-        for x_tile_patches, y_tile_patches in zip(self.x_tiledir.tiles_patches, self.y_tiledir.tiles_patches):
-            object_indexes = y_tile_patches.object_indexes(threshold_percentage=threshold_percentage, object_value=object_value)
+    def filter_nodata(self, tiledir_base: TileDir, nodata_value=(255, 255, 255), nodata_tolerance=0):
+        # Nodata indexes to filter
+        nodata_indexes = tiledir_base.nodata_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
 
-            x_tile_patches_filtered = XPatches(x_tile_patches.patches[object_indexes])
-            y_tile_patches_filtered = YPatches(y_tile_patches.patches[object_indexes])
+        # Update tiles patches inside tiles of directories
+        for x_tiledir in self.x_tiledirs:
+            for i, x_tile in enumerate(x_tiledir.tiles):
+                x_tile.patches = XPatches(x_tile.patches.array[nodata_indexes[i]])
                 
-            x_tiles_patches_filtered.append(x_tile_patches_filtered)
-            y_tiles_patches_filtered.append(y_tile_patches_filtered)
-            
-        self.x_tiledir.tiles_patches = x_tiles_patches_filtered
-        self.y_tiledir.tiles_patches = y_tiles_patches_filtered
+        for y_tiledir in self.y_tiledirs:
+            for i, y_tile in enumerate(y_tiledir.tiles):
+                y_tile.patches = YPatches(y_tile.patches.array[nodata_indexes[i]])
         
-        return self
+        return [x_tiledir.concat_patches() for x_tiledir in self.x_tiledirs], [y_tiledir.concat_patches() for y_tiledir in self.y_tiledirs]
+        
+    def filter_object(self, tiledir_base: TileDir, threshold_percentage=1, object_value=1):
+        assert tiledir_base.tile_type == TileType.Y, 'Tile directory must be of Y Type' 
+        
+        # Object indexes to filter
+        object_indexes = tiledir_base.object_indexes(threshold_percentage=threshold_percentage, object_value=object_value)
+        
+        # Update tiles patches inside tiles of directories
+        for x_tiledir in self.x_tiledirs:
+            for i, x_tile in enumerate(x_tiledir.tiles):
+                x_tile.patches = XPatches(x_tile.patches.array[object_indexes[i]])
+                
+        for y_tiledir in self.y_tiledirs:
+            for i, y_tile in enumerate(y_tiledir.tiles):
+                y_tile.patches = YPatches(y_tile.patches.array[object_indexes[i]])
+       
+        return [x_tiledir.concat_patches() for x_tiledir in self.x_tiledirs], [y_tiledir.concat_patches() for y_tiledir in self.y_tiledirs]
         
     def xy_concat_patches(self):
         return self.x_tiledir.concat_patches(), self.y_tiledir.concat_patches()

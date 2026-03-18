@@ -9,14 +9,20 @@ Created on Sun Sep  7 16:56:04 2025
 
 # %% Import Libraries
 
-from osgeo import gdal
+from osgeo import gdal, gdal_array
 import numpy as np
 
 from .patches import XPatches, YPatches
+from .tile_type import TileType
+
+from skimage.morphology import disk, dilation, erosion
+# from scipy.ndimage import binary_dilation
+
+from abc import ABC, abstractmethod
 
 # %% Parent class
 
-class Tile:
+class Tile(ABC):
     def __init__(self, tile_path: str):
         self.tile_path = tile_path
         
@@ -24,10 +30,14 @@ class Tile:
         
         self.array = self._array()
         
-        self.tile_patches = None
+        self.patches = None
         
     def _array(self) -> np.ndarray:
         return self.dataset.ReadAsArray()
+    
+    def nodata_indexes(self, nodata_value=(255, 255, 255), nodata_tolerance=0):
+        return self.patches.nodata_indexes(nodata_value=nodata_value,
+                                           nodata_tolerance=nodata_tolerance)
     
     def extract_patches(self, patch_size: int=256, overlap: float=0.25, border_patches: bool=False):
         '''
@@ -114,10 +124,41 @@ class Tile:
         # patches_array_reshaped = patches_array.reshape((h_output, w_output, patch_size, patch_size, c_output)) # reshape to (rows, cols, patch size, patch size, channel size)
         
         # Store output in object
-        self.tile_patches = patches_array
+        self.patches = patches_array
         
         # Return patches array or reshaped patches array
-        return self
+        return self.patches
+    
+    @abstractmethod
+    def export_to_geotiff(self, output_path):
+        # Dimensions of output        
+        x_pixels = self.array.shape[1]
+        y_pixels = self.array.shape[0]
+        
+        # Find numpy respective type on GDAL 
+        code_type = gdal_array.NumericTypeCodeToGDALTypeCode(self.array.dtype)
+        
+        # Create output dataset
+        driver = gdal.GetDriverByName('GTiff')
+        nbands = self.array.shape[2]
+        out_ds = driver.Create(output_path, xsize=x_pixels, ysize=y_pixels,
+                               bands=nbands, eType=code_type)
+        
+        # Write arrays
+        for b in range(nbands):
+            out_ds.GetRasterBand(b+1).WriteArray(self.array[..., b])
+            
+        # Set geotransform and projection from input
+        out_ds.SetGeoTransform(self.dataset.GetGeoTransform())
+        out_ds.SetProjection(self.dataset.GetProjection())
+        
+        # Write on disk
+        out_ds.FlushCache()
+        
+        return True
+    
+    def __repr__(self):
+        return f'{self.__class__.__name__} {self.array.shape}'
     
 # %% Child class of X Tile
 
@@ -134,9 +175,15 @@ class XTile(Tile):
     
     def extract_patches(self, patch_size: int=256, overlap: float=0.25, border_patches: bool=False):
         super().extract_patches(patch_size=patch_size, overlap=overlap, border_patches=border_patches)
-        self.tile_patches = XPatches(self.tile_patches) # Transform in custom object
+        self.patches = XPatches(self.patches) # Transform in custom object
         
-        return self
+        return self.patches
+    
+    def export_to_geotiff(self, output_path):
+        return super().export_to_geotiff(output_path=output_path)
+    
+    # def normalize(self):
+    #     self.tile_patches.normalize()
     
 # %% Child class of Y Tile
 
@@ -150,20 +197,52 @@ class YTile(Tile):
         array = np.expand_dims(array, 2)
         
         return array
+        
+    def object_indexes(self, threshold_percentage=1, object_value=1):
+        return self.patches.object_indexes(threshold_percentage=threshold_percentage,
+                                           object_value=object_value)      
     
     def extract_patches(self, patch_size: int=256, overlap: float=0.25, border_patches: bool=False):
         super().extract_patches(patch_size=patch_size, overlap=overlap, border_patches=border_patches)
-        self.tile_patches = YPatches(self.tile_patches) # Transform in custom object
+        self.patches = YPatches(self.patches) # Transform in custom object
         
-        return self
+        return self.patches
     
-# %% Enumerated constant for tile types
+    def preprocess_reference_t2(self, ytile_t2: 'YTile', dilation_px=2, 
+                              erosion_px=0):
+        ''' This object has reference T1, while the reference T2 is passed in a parameter  '''
+        # Structuring element
+        disk_dil = disk(dilation_px)
+        disk_ero = disk(erosion_px)
+        
+        # 1st operation with Reference T1 - Dilation
+        dilated_ref_t1 = dilation(self.array[..., 0], footprint=disk_dil)[..., np.newaxis]
+        
+        # Operations with Reference T2 - Dilation, Erosion and Ring calculation
+        dilated_ref_t2 = dilation(ytile_t2.array[..., 0], footprint=disk_dil)[..., np.newaxis]
+        dilation_ring_ref_t2 = dilated_ref_t2 - ytile_t2.array
+        eroded_ref_t2 = erosion(ytile_t2.array[..., 0], footprint=disk_ero)[..., np.newaxis]
+        erosion_ring_ref_t2 = ytile_t2.array - eroded_ref_t2
+        dilation_erosion_ring_ref_t2 = dilation_ring_ref_t2 + erosion_ring_ref_t2
+        
+        # First update Reference T2 by removing the erosion ring
+        new_ref_t2 = ytile_t2.array - erosion_ring_ref_t2
+        
+        # Update the value of the ring resulted from dilation-erosion by 255s (mask value)
+        # and add the updated result to Reference T2
+        dilation_erosion_ring_ref_t2[dilation_erosion_ring_ref_t2 == 1] = 255
+        new_ref_t2 = new_ref_t2 + dilation_erosion_ring_ref_t2
+        
+        # Now mask, in ref T2, the object pixels from ref T1
+        new_ref_t2[dilated_ref_t1 == 1] = 255
+        ytile_t2.array = new_ref_t2
+        
+        return ytile_t2.array
+    
+    def export_to_geotiff(self, output_path):
+        return super().export_to_geotiff(output_path=output_path)
+        
 
-from enum import Enum
-
-class TileType(str, Enum):
-    X = 'X'
-    Y = 'Y'
     
 # %% Factory function to create tile object (XTile or YTile)
 
