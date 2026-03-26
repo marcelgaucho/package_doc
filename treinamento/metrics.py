@@ -16,7 +16,7 @@ from skimage.morphology import disk
 
 # %% F1-Score class
 
-class F1Score(Metric):
+class CustomF1Score(Metric):
     def __init__(self, name='f1score', beta=1, threshold=0.5, epsilon=1e-7, **kwargs):
         # initializing an object of the super class
         super().__init__(name=name, **kwargs) # super(F1Score, self)
@@ -153,3 +153,76 @@ class RelaxedF1Score(Metric):
         # For relaxed recall
         self.tp_relax_recall.assign(0)
         self.actual_positive_relax_recall.assign(0) 
+        
+        
+# %% Masked F1-Score (mask all-zeros pixels)
+        
+class MaskedF1Score(Metric):
+    def __init__(self, name='masked_f1', **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.precision = tf.keras.metrics.Precision(class_id=1)
+        self.recall = tf.keras.metrics.Recall(class_id=1)
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # 1. Create mask from y_true (1 if labeled, 0 if all-zeros)
+        mask = tf.reduce_sum(y_true, axis=-1)
+        mask = tf.cast(mask > 0, tf.float32)
+        
+        # 2. Update internal precision/recall with the mask
+        self.precision.update_state(y_true, y_pred, sample_weight=mask)
+        self.recall.update_state(y_true, y_pred, sample_weight=mask)
+
+    def result(self):
+        p = self.precision.result()
+        r = self.recall.result()
+        return 2 * ((p * r) / (p + r + 1e-7))
+
+    def reset_state(self):
+        self.precision.reset_state()
+        self.recall.reset_state()
+        
+        
+# %% Masked Precision
+
+class MaskedPrecision(Metric):
+    def __init__(self, name='masked_precision', **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.precision = tf.keras.metrics.Precision(class_id=1)
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # 1. Create mask from y_true (1 if labeled, 0 if all-zeros)
+        mask = tf.reduce_sum(y_true, axis=-1)
+        mask = tf.cast(mask > 0, tf.float32)
+        
+        # 2. Update internal precision/recall with the mask
+        self.precision.update_state(y_true, y_pred, sample_weight=mask)
+
+    def result(self):
+        p = self.precision.result()
+        return p
+
+    def reset_state(self):
+        self.precision.reset_state()
+        
+# %% Masked Recall
+        
+class MaskedRecall(Metric):
+    def __init__(self, name='masked_recall', **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.recall = tf.keras.metrics.Recall(class_id=1)
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # 1. Create mask from y_true (1 if labeled, 0 if all-zeros)
+        mask = tf.reduce_sum(y_true, axis=-1)
+        mask = tf.cast(mask > 0, tf.float32)
+        
+        # 2. Update internal precision/recall with the mask
+        self.recall.update_state(y_true, y_pred, sample_weight=mask)
+
+    def result(self):
+        r = self.recall.result()
+        return r
+
+    def reset_state(self):
+        self.recall.reset_state()
+

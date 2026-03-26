@@ -32,7 +32,7 @@ from tensorflow.keras.metrics import Precision, Recall
 from tensorflow.keras.losses import CategoricalCrossentropy
 
 # Import from other modules inside package
-from .f1_metric import F1Score
+from .metrics import CustomF1Score
 from .train_loop_functions import train_model_loop
 from .utils import onehot_numpy, show_training_plot, transform_augment_or_maintain  
 
@@ -92,8 +92,8 @@ class ModelTrainer:
             gc.collect()  
 
     def train_with_loop(self, epochs=2000, early_stopping_epochs=50, 
-                        metrics_train=[F1Score(), Precision(class_id=1), Recall(class_id=1)],
-                        metrics_val=[F1Score(), Precision(class_id=1), Recall(class_id=1)],
+                        metrics_train=[CustomF1Score(), Precision(class_id=1), Recall(class_id=1)],
+                        metrics_val=[CustomF1Score(), Precision(class_id=1), Recall(class_id=1)],
                         learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
                         early_stopping_on_metric=True,
@@ -178,7 +178,7 @@ class ModelTrainer:
         return result_history
     
     def train_with_fit(self, epochs=2000, early_stopping_epochs=50, 
-                       metrics=[F1Score(), Precision(class_id=1), Recall(class_id=1)],
+                       metrics=[CustomF1Score(), Precision(class_id=1), Recall(class_id=1)],
                        learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                        buffer_shuffle=None, batch_size=16, use_dataset=True, convert_to_tensor_if_numpy=False,
                        data_augmentation=False, early_stopping_on_metric=True,  

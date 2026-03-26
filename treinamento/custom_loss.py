@@ -34,3 +34,34 @@ class CustomEntropyLoss(Loss):
         
         # Return the tensor mean
         return tf.math.reduce_mean(loss)
+    
+# %% Weighted Categorical Cross Entropy (Implementação IA Google)
+
+def masked_weighted_cce(weights):
+    weights = tf.constant(weights, dtype=tf.float32)
+    def loss(y_true, y_pred):
+        y_true = tf.cast(y_true, tf.float32)
+        # print('y_true', type(y_true), y_true)
+        # print('y_pred', type(y_pred), y_pred)
+        
+        # Compute the standard cross loss (without reduction)
+        cce_tf = CategoricalCrossentropy(reduction='none')
+        cce_loss = cce_tf(y_true, y_pred)
+        
+        # Compute the mask (0 is set to pixels with all 0s in all one-hot classes)
+        mask = tf.reduce_sum(y_true, axis=-1)
+        mask = tf.cast(mask > 0, dtype=tf.float32)
+        
+        # Create the Weight Tensor
+        weight_tensor = tf.reduce_sum(weights * y_true, axis=-1)
+        
+        # Weight the loss and mask it
+        weighted_masked_loss = cce_loss * weight_tensor * mask
+        
+        # Reduce loss dividing by the sum of the (weight_tensor * mask) to keep the gradient consistent
+        denominator = tf.reduce_sum(weight_tensor * mask) + tf.keras.backend.epsilon()
+        
+        # Return the division
+        return tf.reduce_sum(weighted_masked_loss) / denominator
+
+    return loss
