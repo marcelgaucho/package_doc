@@ -42,17 +42,20 @@ class XPatches(Patches):
     def __init__(self, array):
         super().__init__(array)
         
-    def normalize(self):
-        '''Normalize image for each band'''
-        min_value = [np.min(self.array[..., i]) for i in range(self.array.shape[-1])]        
-        max_value = [np.max(self.array[..., i]) for i in range(self.array.shape[-1])]
+    def normalize(self, min_value=None, max_value=None):
+        '''Normalize image for each band. Use input min and max values if passed.'''
+        if min_value is None:
+            min_value = [np.min(self.array[..., i]) for i in range(self.array.shape[-1])]        
+        
+        if max_value is None:
+            max_value = [np.max(self.array[..., i]) for i in range(self.array.shape[-1])]
         
         self.array = self.array.astype(np.float32) # transform array in float
                 
         for i in range(self.array.shape[-1]):
             self.array[..., i] = (self.array[..., i] - min_value[i]) / (max_value[i] - min_value[i])
         
-        return self.array
+        return self.array, min_value, max_value
     
     def concatenate(self, x_patches: 'XPatches'):
         ''' Concatenate other XPatches array to the present XPatches array '''

@@ -12,37 +12,58 @@ Created on Thu Aug  1 22:40:04 2024
 import numpy as np
 from sklearn.utils.extmath import stable_cumsum
 
-import json, pickle
+import json, pickle, warnings
 
 from .buffer_function import buffer_patches_array
 
 # %% Class used to calculate the relaxed metrics
 
 class RelaxedMetricCalculator:
-    def __init__(self, y_array, pred_array=None, buffer_px=3, prob_array=None):
-        self.y_array = y_array
-        self.pred_array = pred_array
-        self.prob_array = prob_array
+    def __init__(self, y_array, pred_array, prob_array=None, buffer_px=3,
+                 ignore_index=255):
+        # Ignored index
+        self.ignore_index = ignore_index
         
+        # Buffer radius to apply, in pixels
         self.buffer_px = buffer_px
         
-        self.buffer_y_array = buffer_patches_array(self.y_array, radius_px=self.buffer_px)
-        self.buffer_pred_array = None
+        # Y true array
+        self.y_array = y_array
         
+        # Mask (pixels not ignored)
+        self.mask = (self.y_array != ignore_index)
+        
+        # Probabilities predicted array
+        self.prob_array = prob_array
+
+        # Predictions array (class 0 or 1)
+        self.pred_array = pred_array
+        
+        # Buffer y and pred array
+        self.buffer_y_array = self._buffer_array(array=self.y_array, buffer_px=self.buffer_px)
+        self.buffer_pred_array = self._buffer_array(array=self.pred_array, buffer_px=self.buffer_px)
+        
+        # Filter (and flatten) pred array and y_array with mask
+        self.pred_array = self.pred_array[self.mask]
+        self.y_array = self.y_array[self.mask]
+        
+        # Metrics dict to comput
         self.metrics = None
         
-        self.ap_lists = {}
-    
-    def _calculate_buffer_pred(self, print_interval):
-        self.buffer_pred_array = buffer_patches_array(self.pred_array, radius_px=self.buffer_px, print_interval=print_interval)
+        # Metrics (precision and recall) and thresholds lists computed in average precision
+        self.ap_lists = {}        
         
-    def _calculate_prec_recall_f1(self, value_zero_division, print_interval):
-        # Give error if prediction isn't set
-        assert self.pred_array is not None, "Prediction must be set, please set self.pred_array = array"
+    def _buffer_array(self, array, buffer_px):
+        # The buffer is made on a masked array without the ignored index
+        # (To the ignored index not affect the buffer)
+        # Then the ignored index pixels are removed filtering the pixels in the mask
+        masked_array = array * self.mask
+        masked_array_buffer = buffer_patches_array(masked_array, radius_px=buffer_px)
+        masked_array_buffer = masked_array_buffer[self.mask]
         
-        # Set buffer of prediction
-        self._calculate_buffer_pred(print_interval=print_interval)
+        return masked_array_buffer        
         
+    def _calculate_prec_recall_f1(self, value_zero_division):
         # Epsilon (to not divide by 0)
         epsilon = 1e-7
         
@@ -60,17 +81,16 @@ class RelaxedMetricCalculator:
         relaxed_precision = true_positive_relaxed_precision / (predicted_positive + epsilon)
         relaxed_recall = true_positive_relaxed_recall / (actual_positive + epsilon)
         
-        # Special case
-        # If there are no actual positives, recall is 1 because "all" the positives will be discovered
-        if actual_positive == 0:
-            relaxed_recall = 1
-                
-        # Set the marked value in case of zero division, if it is setted
-        if value_zero_division:
-            if predicted_positive == 0:
+        # Special cases of Zero Division (set the result to value_zero_division)
+        if predicted_positive == 0:
+            warnings.warn("Predicted positive are equal to 0.")
+            if value_zero_division:
                 relaxed_precision = value_zero_division
-            if actual_positive == 0:
-                relaxed_recall = value_zero_division        
+            
+        if actual_positive == 0:
+            warnings.warn("Actual positive are equal to 0.")
+            if value_zero_division:
+                relaxed_recall = value_zero_division
         
         # Calculate relaxed F1 from relaxed precision and relaxed recall
         relaxed_f1 = (2 * relaxed_precision * relaxed_recall) / (relaxed_precision + relaxed_recall + epsilon)
@@ -82,16 +102,15 @@ class RelaxedMetricCalculator:
     
     def _calculate_avg_precision(self, print_interval, interpolated):
         ''' Calculate Thresholds '''
-        # Flatten prediction array and y_true buffer
-        prob_flat = self.prob_array.flatten() # maintain original for use in recall calculus
-        buffer_y_array_flat = self.buffer_y_array.flatten()
+        # Flatten probabilities prediction array and mask it with non-ignored values
+        prob_flat = self.prob_array[self.mask] # maintain original for use in recall calculus
         
         # Sort predictions in descending order of probabilities
         desc_score_indices = np.argsort(prob_flat, kind="mergesort")[::-1]
         prob_flat = prob_flat[desc_score_indices]
         
         # Calculate Thresholds using threshold indexes, which are the change indexes plus the final element index
-        # Change indexes are the diff indexes where probability difference with next probability> 0  
+        # Change indexes are the diff indexes where probability difference with next probability > 0  
         diff_scores = np.diff(prob_flat)
         change_idxs = np.where(diff_scores)[0]
         threshold_idxs = np.r_[change_idxs, prob_flat.size - 1]
@@ -100,7 +119,7 @@ class RelaxedMetricCalculator:
         ''' Calculate Cumulative TP (for Precision) and Cumulative Predicted Positives for Precision '''
         # Cumulative sum of Trues Positives in the threshold indexes
         # Threshold used in index i is pred_scores[threshold_idxs[i]]
-        buffer_y_array_flat = buffer_y_array_flat[desc_score_indices] # sort buffer of y
+        buffer_y_array_flat = self.buffer_y_array[desc_score_indices] # sort buffer of y
         cumtp_prec = stable_cumsum(buffer_y_array_flat)
         cumtp_thres_prec = cumtp_prec[threshold_idxs]
         
@@ -125,7 +144,7 @@ class RelaxedMetricCalculator:
             pred = (self.prob_array >= threshold).astype(int)
             
             # Buffer for prediction
-            pred_buffer = buffer_patches_array(pred, radius_px=self.buffer_px)
+            pred_buffer = self._buffer_array(array=pred, buffer_px=self.buffer_px)
             
             # True Positive for Recall
             true_positive_relaxed_recall = (self.y_array * pred_buffer).sum()
@@ -188,7 +207,7 @@ class RelaxedMetricCalculator:
                                                  "please set self.prob_array = array")
         
         # Calculate relaxed precision, recall and f1
-        metrics = self._calculate_prec_recall_f1(value_zero_division=value_zero_division, print_interval=print_interval)
+        metrics = self._calculate_prec_recall_f1(value_zero_division=value_zero_division)
         
         # Calculate average precision
         if include_avg_precision:

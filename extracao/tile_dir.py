@@ -39,7 +39,7 @@ class TileDir:
        
         return [tile_obj.patches for tile_obj in self.tiles]
     
-    def normalize_patches(self):
+    def normalize_patches(self, min_value=None, max_value=None):
         ''' Normalization according to all tiles in the directory '''
         assert all(t.patches is not None for t in self.tiles), 'Patches must first be extracted with extrac_patches method'
         assert self.tile_type == TileType.X, 'Only X tiles can be normalized'
@@ -47,7 +47,7 @@ class TileDir:
         # Concatenate and normalize patches
         all_patches = self.concat_patches()
         
-        all_patches = all_patches.normalize()
+        all_patches, min_value, max_value = all_patches.normalize(min_value=min_value, max_value=max_value)
         
         # Update patches in tiles
         patch_index = 0 # initial patch index to extract patches of a tile 
@@ -55,7 +55,7 @@ class TileDir:
             t.patches = XPatches(all_patches[patch_index : patch_index+len(t.patches.array), ...])
             patch_index += len(t.patches.array)
             
-        return [t.patches for t in self.tiles]          
+        return [t.patches for t in self.tiles], min_value, max_value          
 
     def concat_patches(self):
         patches = np.concatenate([t.patches.array for t in self.tiles], axis=0)
