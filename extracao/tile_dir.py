@@ -85,6 +85,18 @@ class TileDir:
                                              erosion_px=erosion_px)
             
         return [ytile_t2 for ytile_t2 in ytiledir_t2.tiles]
+    
+    def preprocess_reference(self, ytiledir_t1: 'TileDir', dilation_px=2, 
+                             erosion_px=0):
+        ''' This object has reference T1, while the reference T2 is passed in a parameter  '''
+        assert ytiledir_t1.tile_type == TileType.Y, 'T2 Tile Dir must be of Y type'
+        assert self.tile_type == TileType.Y, 'T1 Tile Dir must be of Y type'
+        
+        for ytile_t2, ytile_t1 in zip(self.tiles, ytiledir_t1.tiles):
+            ytile_t2.preprocess_reference(ytile_t1=ytile_t1, dilation_px=dilation_px,
+                                          erosion_px=erosion_px)
+            
+        return [ytile_t2 for ytile_t2 in self.tiles]
             
         
         

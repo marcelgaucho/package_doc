@@ -239,6 +239,37 @@ class YTile(Tile):
         
         return ytile_t2.array
     
+    def preprocess_reference(self, ytile_t1: 'YTile', dilation_px=2, 
+                             erosion_px=0):
+        ''' This object has reference T1, while the reference T2 is passed in a parameter  '''
+        # Structuring element
+        disk_dil = disk(dilation_px)
+        disk_ero = disk(erosion_px)
+        
+        # 1st operation with Reference T1 - Dilation
+        dilated_ref_t1 = dilation(ytile_t1.array[..., 0], footprint=disk_dil)[..., np.newaxis]
+        
+        # Operations with Reference T2 - Dilation, Erosion and Ring calculation
+        dilated_ref_t2 = dilation(self.array[..., 0], footprint=disk_dil)[..., np.newaxis]
+        dilation_ring_ref_t2 = dilated_ref_t2 - self.array
+        eroded_ref_t2 = erosion(self.array[..., 0], footprint=disk_ero)[..., np.newaxis]
+        erosion_ring_ref_t2 = self.array - eroded_ref_t2
+        dilation_erosion_ring_ref_t2 = dilation_ring_ref_t2 + erosion_ring_ref_t2
+        
+        # First update Reference T2 by removing the erosion ring
+        new_ref_t2 = self.array - erosion_ring_ref_t2
+        
+        # Update the value of the ring resulted from dilation-erosion by 255s (mask value)
+        # and add the updated result to Reference T2
+        dilation_erosion_ring_ref_t2[dilation_erosion_ring_ref_t2 == 1] = 255
+        new_ref_t2 = new_ref_t2 + dilation_erosion_ring_ref_t2
+        
+        # Now mask, in ref T2, the object pixels from ref T1
+        new_ref_t2[dilated_ref_t1 == 1] = 255
+        self.array = new_ref_t2
+        
+        return self.array
+    
     def export_to_geotiff(self, output_path):
         return super().export_to_geotiff(output_path=output_path)
         
