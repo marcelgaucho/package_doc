@@ -95,11 +95,16 @@ y_t2_tiles_preprocessed = y_tiledir_t1.preprocess_reference_t2(ytiledir_t2=ytile
                                                                dilation_px=dilation_px,
                                                                erosion_px=erosion_px)
 
-# %%
-output_dir = r'testes1/'
+# %% Export preprocessed references
+'''
+output_dir = Path(r'testes1/')
+output_dir.mkdir(exist_ok=True)
 
-for i, tile in enumerate(y_t2_tiles_preprocessed):
-    tile.export_to_geotiff(output_dir + str(i) + '.tif')
+for tile in y_t2_tiles_preprocessed:
+    filename_ext = Path(tile.tile_path).stem + '_prep.tif'
+    tile_path = output_dir / filename_ext
+    tile.export_to_geotiff(str(tile_path))
+'''
 
 # %% Create XsYs Tile Directory object
 
