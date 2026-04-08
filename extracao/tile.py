@@ -62,9 +62,18 @@ class Tile(ABC):
         c_output = c_input
         
         # If division is inexact and there is border patches, add one border patch
-        if ( (h_input - patch_size) % stride != 0 ) and border_patches:
-            h_output = int(  (h_input - patch_size)/stride + 1 ) + 1
-            w_output = int(  (w_input - patch_size)/stride + 1 ) + 1
+        if border_patches:
+            # First default values are returned
+            h_output = int(  (h_input - patch_size)/stride + 1 )
+            w_output = int(  (w_input - patch_size)/stride + 1 )
+            
+            # If border is passed, add 1 to the output
+            if ( (h_input - patch_size) % stride != 0 ):
+                h_output = int(  (h_input - patch_size)/stride + 1 ) + 1
+                
+            if ( (w_input - patch_size) % stride != 0 ):
+                w_output = int(  (w_input - patch_size)/stride + 1 ) + 1   
+        
         # Else the normal operation is executed
         else:
             h_output = int(  (h_input - patch_size)/stride + 1 )

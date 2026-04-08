@@ -40,7 +40,7 @@ from .utils import onehot_numpy, show_training_plot, transform_augment_or_mainta
 
 class ModelTrainer:
     best_model_filename = 'best_model.h5'
-    early_stopping_delta = 0.01 # Delta in relation to best result for training to continue 
+    early_stopping_delta = 0.001 # Delta in relation to best result for training to continue 
     def __init__(self, x_dir: str, y_dir: str, output_dir: str, model, optimizer):
         # Directories
         self.x_dir = Path(x_dir) # Dir with X data
