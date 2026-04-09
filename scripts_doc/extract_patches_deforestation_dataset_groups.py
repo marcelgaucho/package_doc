@@ -47,7 +47,7 @@ if not Path(out_y_dir).exists():
 
 patch_size=64
 
-overlap=0.9 
+overlap =  {'train': 0.9, 'valid': 0.9, 'test': 0.75}
 
 # For train and valid groups, border patches aren't included
 # For test group, the border patches are included to make the mosaic
@@ -98,6 +98,7 @@ for group in groups:
 # Uncomment to export to geotiffs
 '''
 output_dir = r'tiles_t2_preprocessed/'
+Path(output_dir).mkdir(exist_ok=True)
 
 for group in groups:
     output_dir_group = Path(fr'{output_dir}{group}')
@@ -126,8 +127,26 @@ x_t1_patches, x_t2_patches, y_t1_patches, y_t2_patches = {}, {}, {}, {}
 for group in groups:
     (x_t1_patches[group], x_t2_patches[group]), \
     (y_t1_patches[group], y_t2_patches[group]) = xsys_tiledir[group].extract_patches(patch_size=patch_size, 
-                                                                                     overlap=overlap, 
+                                                                                     overlap=overlap[group], 
                                                                                      border_patches=border_patches[group])   
+    
+# %% Normalize Train Patches of Xs directories 
+
+(x_t1_patches['train'], x_t2_patches['train']), \
+min_value_train, max_value_train = xsys_tiledir['train'].normalize_patches(min_value=None,
+                                                                           max_value=None)
+
+# %% Normalize Valid Patches of Xs directories
+
+(x_t1_patches['valid'], x_t2_patches['valid']), \
+min_value_valid, max_value_valid = xsys_tiledir['valid'].normalize_patches(min_value=min_value_train,
+                                                                           max_value=max_value_train)
+
+# %% Normalize Test Patches of Xs directories
+
+(x_t1_patches['test'], x_t2_patches['test']), \
+min_value_test, max_value_test = xsys_tiledir['test'].normalize_patches(min_value=min_value_train,
+                                                                        max_value=max_value_train)
 
 # %% Filter Patches with object
 
@@ -148,23 +167,7 @@ for group, f_nodata in filter_nodata.items():
                                                                                        nodata_value=nodata_value, 
                                                                                        nodata_tolerance=nodata_tolerance)
 
-# %% Normalize Train Patches of Xs directories 
 
-(x_t1_patches['train'], x_t2_patches['train']), \
-min_value_train, max_value_train = xsys_tiledir['train'].normalize_patches(min_value=None,
-                                                                           max_value=None)
-
-# %% Normalize Valid Patches of Xs directories
-
-(x_t1_patches['valid'], x_t2_patches['valid']), \
-min_value_valid, max_value_valid = xsys_tiledir['valid'].normalize_patches(min_value=min_value_train,
-                                                                           max_value=max_value_train)
-
-# %% Normalize Test Patches of Xs directories
-
-(x_t1_patches['test'], x_t2_patches['test']), \
-min_value_test, max_value_test = xsys_tiledir['test'].normalize_patches(min_value=min_value_train,
-                                                                        max_value=max_value_train)
 
 # %% Concatenate X Patches in T1 and T2
 
@@ -219,7 +222,7 @@ for group in groups:
     shape_tiles = [tile.array.shape[:2] for tile in x_tiledir_t2[group].tiles]
     
     # Repeat stride used in this script to get to all tiles
-    stride = patch_size - int(patch_size * overlap)
+    stride = patch_size - int(patch_size * overlap[group])
     stride_tiles = [stride]*len(shape_tiles)
     
     # Info tiles dict
