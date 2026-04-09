@@ -9,6 +9,9 @@ Created on Mon Sep 29 18:25:36 2025
 
 # %% Import Libraries
 
+import os
+os.environ["TF_USE_LEGACY_KERAS"] = "1" # Use Keras 2
+
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.metrics import Precision, Recall
