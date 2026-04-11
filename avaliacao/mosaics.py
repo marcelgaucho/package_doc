@@ -61,20 +61,19 @@ class MosaicGenerator:
             
             i_tile_start += self.len_tiles[i_mosaic] # Update index where tile starts
             
-        self.mosaics = mosaics
+        self.mosaics = stack_uneven(mosaics)[..., np.newaxis] # Transform mosaics list to array
             
         return mosaics
     
     def save_mosaics(self, prefix='pred'):
-        mosaics = stack_uneven(self.mosaics)[..., np.newaxis] # Transform mosaics list to array
-        
-        np.save(self.output_dir / f'{prefix}_mosaics.npy', mosaics)
+        np.save(self.output_dir / f'{prefix}_mosaics.npy', self.mosaics)
         
     def export_mosaics(self, prefix='outmosaic'):
         self._set_labels_paths() # Set list of paths of reference tiles
         
         # Export predictions mosaics
         for mosaic, label_path in zip(self.mosaics, self.labels_paths):
+            mosaic = mosaic[..., 0] # Suppress channel dimension
             outmosaic_basename = prefix + '_' + label_path.stem + '.tif'
             outmosaic_path = str(self.output_dir / outmosaic_basename)
 

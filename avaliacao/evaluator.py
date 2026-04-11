@@ -39,6 +39,16 @@ class ModelEvaluator:
         
         self._set_numpy_arrays()
         
+        self.y_mosaics = None
+        if label_tiles_dir:
+            # Load reference mosaics
+            labels_paths = [str(path) for path in self.label_tiles_dir.iterdir() 
+                                 if path.suffix=='.tiff' or path.suffix=='.tif']
+            labels_paths.sort()
+            y_mosaics = [gdal.Open(y_mosaic_path).ReadAsArray() for y_mosaic_path in labels_paths]
+            self.y_mosaics = stack_uneven(y_mosaics)[..., np.newaxis]
+            
+        
     def _set_numpy_arrays(self):
         # Load X and Y Train
         self.x_train = np.load(self.x_dir / 'x_train.npy')
@@ -153,7 +163,7 @@ class ModelEvaluator:
         if evaluate_test:
             self._evaluate_test(buffers_px=buffers_px, include_avg_precision=include_avg_precision) 
             
-    def build_test_mosaics(self, prefix='outmosaic', export_mosaics=False):
+    def build_test_mosaics(self, prefix='outmosaic', export_mosaics=False, ignore_index=255):
         if self.label_tiles_dir is None:
             raise Exception("Couldn't build mosaics because the label tiles directory was not informed")
             
@@ -166,10 +176,16 @@ class ModelEvaluator:
         with open(self.y_dir / 'info_tiles_test.json') as fp:   
             info_tiles_test = json.load(fp)
         
+        # See if there are ignored indexes in reference mosaics
+        ignore_in_y_mosaics = ignore_index in self.y_mosaics 
+        
         # Build, save and export mosaics for pred
         mosaics = MosaicGenerator(test_array=pred_test, info_tiles=info_tiles_test, tiles_dir=self.label_tiles_dir,
                                   output_dir=self.output_dir)
         mosaics.build_mosaics()
+        if ignore_in_y_mosaics:
+            mosaics.mosaics[self.y_mosaics == ignore_index] = ignore_index            
+            
         mosaics.save_mosaics(prefix='pred')
         if export_mosaics:
             mosaics.export_mosaics(prefix=prefix+'_pred_')
@@ -178,6 +194,8 @@ class ModelEvaluator:
         mosaics = MosaicGenerator(test_array=prob_test, info_tiles=info_tiles_test, tiles_dir=self.label_tiles_dir,
                                   output_dir=self.output_dir)
         mosaics.build_mosaics()
+        if ignore_in_y_mosaics:
+            mosaics.mosaics[self.y_mosaics == ignore_index] = ignore_index 
         mosaics.save_mosaics(prefix='prob')
         if export_mosaics:
             mosaics.export_mosaics(prefix=prefix+'_prob_')
@@ -191,15 +209,8 @@ class ModelEvaluator:
             
         pred_mosaics = np.load(self.output_dir / 'pred_mosaics.npy')
         
-        # Load reference mosaics
-        labels_paths = [str(path) for path in self.label_tiles_dir.iterdir() 
-                             if path.suffix=='.tiff' or path.suffix=='.tif']
-        labels_paths.sort()
-        y_mosaics = [gdal.Open(y_mosaic_path).ReadAsArray() for y_mosaic_path in labels_paths]
-        y_mosaics = stack_uneven(y_mosaics)[..., np.newaxis]
-        
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
-            metric_calculator = RelaxedMetricCalculator(y_array=y_mosaics, pred_array=pred_mosaics, buffer_px=buffer_px, prob_array=prob_mosaics)
+            metric_calculator = RelaxedMetricCalculator(y_array=self.y_mosaics, pred_array=pred_mosaics, buffer_px=buffer_px, prob_array=prob_mosaics)
             metric_calculator.calculate_metrics(include_avg_precision=include_avg_precision)
             metric_calculator.export_results(output_dir=self.output_dir, group='mosaics')  
