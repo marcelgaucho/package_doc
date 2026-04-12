@@ -11,7 +11,7 @@ Created on Wed Jul 23 17:10:16 2025
 
 import shutil
 from pathlib import Path
-from .ensemb import DataGroups, Ensemble
+from .uncertain import DataGroups, UncertaintyCalculator
 import numpy as np
 from ..treinamento.utils import onehot_numpy
 from tensorflow.data import Dataset
@@ -34,7 +34,7 @@ class XDirUncertain:
         self.perc_cut = perc_cut
         
     def _calculate_uncertainty(self, data_group):
-        ensemble = Ensemble(model_dirs=self.model_dirs, data_group=data_group)
+        ensemble = UncertaintyCalculator(model_dirs=self.model_dirs, data_group=data_group)
         if self.metric == UncertaintyMetric.Entropy:
             return ensemble.entropy(min_target_scale=self.min_scale_uncertainty, 
                                     max_target_scale=self.max_scale_uncertainty,
@@ -61,6 +61,7 @@ class XDirUncertain:
             raise Exception("X uncertainty directory already exists")
     
     def insert_data(self):
+        print('Inserting data')
         # Load previous X Data
         x_data = {data_group: np.load(self.in_x_folder / f'x_{data_group}.npy') for 
                   data_group in iter(DataGroups)}

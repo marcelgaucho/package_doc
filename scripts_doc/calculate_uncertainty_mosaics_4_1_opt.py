@@ -32,10 +32,9 @@ data_group = DataGroups.Test
 
 model_name = 'resunet'
 
-
 # %% Create mosaics
 
-# Unceratinty array
+# Uncertainty array
 uncertainty_array = np.load(folder_uncertainty / f'{model_name}_{metric}_{data_group}.npy')
 
 # Load information
