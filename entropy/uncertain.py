@@ -26,7 +26,7 @@ class UncertaintyCalculator:
         self.scale_result = scale_result
         
     def _prob_mean_ensemble(self):
-        prob_ensemble = [np.load(model_dir / f'prob_{self.data_group}.npy') 
+        prob_ensemble = [np.load(model_dir / f'prob_{self.data_group.value}.npy') 
                          for model_dir in self.model_dirs] # Load prob arrays in list
         prob_ensemble = np.array(prob_ensemble) # transform list in array
         prob_ensemble = np.concatenate((1-prob_ensemble, prob_ensemble), axis=-1) # insert the background probability

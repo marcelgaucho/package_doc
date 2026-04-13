@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 
 # %% One-Hot codify an y array
 
-def onehot_numpy(np_array):
+def onehot_numpy(np_array, num_classes=2, ignore_index=255):
     '''
     Parameters
     ----------
@@ -35,9 +35,21 @@ def onehot_numpy(np_array):
     
     np_array = np_array.squeeze(axis=3) # Squeeze patches in last dimension (channel dimension)
     
-    n_values = np.max(np_array) + 1
-    np_array_onehot = np.eye(n_values, dtype=np.uint8)[np_array]
-    return np_array_onehot
+    # If ignore_index is set, first change ignore_index to the last value and 
+    # increment the number of classes
+    if ignore_index is not None:
+        mask = (np_array == ignore_index)
+        np_array = np_array.copy()
+        np_array[mask] = num_classes
+        num_classes = num_classes + 1  
+        
+    np_array = np.eye(num_classes, dtype=np.uint8)[np_array] # One-Hot codification
+
+    # Consider classes only up to the ignore index
+    if ignore_index is not None:
+        np_array = np_array[..., :num_classes-1]
+        
+    return np_array
 
 # %% Function that build training plot
 

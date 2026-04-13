@@ -63,7 +63,7 @@ class XDirUncertain:
     def insert_data(self):
         print('Inserting data')
         # Load previous X Data
-        x_data = {data_group: np.load(self.in_x_folder / f'x_{data_group}.npy') for 
+        x_data = {data_group: np.load(self.in_x_folder / f'x_{data_group.value}.npy') for 
                   data_group in iter(DataGroups)}
             
         # Calculate uncertainty
@@ -73,7 +73,7 @@ class XDirUncertain:
         # Concatenate X with uncertainty and save arrays
         for data_group in iter(DataGroups):
             x_data[data_group] = np.concatenate((x_data[data_group], uncertainty[data_group]), axis=-1)
-            np.save(self.out_x_folder / f'x_{data_group}.npy', x_data[data_group])
+            np.save(self.out_x_folder / f'x_{data_group.value}.npy', x_data[data_group])
             
         # Create datasets
         self._create_datasets()        
@@ -81,10 +81,10 @@ class XDirUncertain:
     def _create_datasets(self):
         # Load X Data (with uncertainty) and Y Data for dataset groups
         dataset_groups = [DataGroups.Train, DataGroups.Valid]
-        x_data = {data_group: np.load(self.out_x_folder / f'x_{data_group}.npy') for 
+        x_data = {data_group: np.load(self.out_x_folder / f'x_{data_group.value}.npy') for 
                   data_group in dataset_groups}
         
-        y_data = {data_group: onehot_numpy( np.load(self.y_folder / f'y_{data_group}.npy') )
+        y_data = {data_group: onehot_numpy( np.load(self.y_folder / f'y_{data_group.value}.npy') )
                   for data_group in dataset_groups}        
 
         # Create datasets
@@ -93,7 +93,7 @@ class XDirUncertain:
         
         # Save datasets in specific folder for each dataset
         for data_group in dataset_groups:
-            dataset_path = self.out_x_folder / f'{data_group}_dataset'
+            dataset_path = self.out_x_folder / f'{data_group.value}_dataset'
             try:
                 shutil.rmtree(dataset_path)
             except FileNotFoundError:
