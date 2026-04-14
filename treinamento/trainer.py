@@ -35,6 +35,7 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 from .metrics import CustomF1Score
 from .train_loop_functions import train_model_loop
 from .utils import onehot_numpy, show_training_plot, transform_augment_or_maintain  
+from .lr_decay import StepDecay
 
 # %% Class that do the model training
 
@@ -97,7 +98,7 @@ class ModelTrainer:
                         learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
                         early_stopping_on_metric=True,
-                        augment_batch_factor=2):
+                        augment_batch_factor=2, use_lr_decay=True):
         # Lists of metrics must not be empty
         assert len(metrics_train) > 0, "List of metrics on train must have at least one element"
         assert len(metrics_val) > 0, "List of metrics on validation must have at least one element"
@@ -125,7 +126,15 @@ class ModelTrainer:
         # Optimizer and learning rate
         optimizer = self.optimizer
         optimizer.build(model.trainable_variables)
-        optimizer.learning_rate.assign(learning_rate) # Assign learning rate to optimizer
+        if use_lr_decay:
+            steps_per_epoch = self.train_dataset.cardinality().numpy() // batch_size
+            drop_rate = 0.1 
+            epochs_per_drop = 10
+            schedule = StepDecay(initial_lr=learning_rate, steps_per_epoch=steps_per_epoch,
+                                 drop_rate=drop_rate, epochs_per_drop=epochs_per_drop)
+            optimizer.learning_rate = schedule # Assign schedule to optimizer
+        else:
+            optimizer.learning_rate.assign(learning_rate) # Assign learning rate to optimizer
         
         # By default, shuffle dataset by its length
         if not buffer_shuffle:

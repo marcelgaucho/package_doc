@@ -114,7 +114,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     
     # Training loop
     for epoch in range(epochs):
-        print("\nStart of epoch %d" % (epoch))
+        print(f"\nStart of epoch {epoch}")
+        print(f'Learning rate = {optimizer.learning_rate:.6f}')
         start_time = time.time()
         
         # Initialize accumulated loss in train and validation
