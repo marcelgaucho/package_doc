@@ -18,6 +18,7 @@ from ..treinamento.arquiteturas.unetr_2d import Patches
 from ..treinamento.arquiteturas.segformer_tf_k2.models.modules import MixVisionTransformer
 from ..treinamento.arquiteturas.segformer_tf_k2.models.Head import SegFormerHead
 from ..treinamento.arquiteturas.segformer_tf_k2.models.utils import ResizeLayer
+from ..treinamento.trainer import ModelTrainer
 
 from .metric_calculator import RelaxedMetricCalculator
 from .mosaics import MosaicGenerator
@@ -32,7 +33,7 @@ class ModelEvaluator:
         self.output_dir = Path(output_dir)
         self.label_tiles_dir = Path(label_tiles_dir)
         
-        self.model = load_model(Path(output_dir) / 'best_model.h5', compile=False, custom_objects={"Patches": Patches, 
+        self.model = load_model(Path(output_dir) / ModelTrainer.best_model_filename, compile=False, custom_objects={"Patches": Patches, 
                                                                                                       "MixVisionTransformer": MixVisionTransformer,
                                                                                                       "SegFormerHead": SegFormerHead,
                                                                                                       "ResizeLayer": ResizeLayer})
