@@ -57,6 +57,21 @@ class XPatches(Patches):
         
         return self.array, min_value, max_value
     
+    def standardize(self, mean_value=None, std_value=None):
+        '''Standardize image for each band. Use input mean and std values if passed.'''
+        if mean_value is None:
+            mean_value = [np.mean(self.array[..., i]) for i in range(self.array.shape[-1])]        
+        
+        if std_value is None:
+            std_value = [np.std(self.array[..., i]) for i in range(self.array.shape[-1])]
+            
+        self.array = self.array.astype(np.float32) # transform array in float
+                
+        for i in range(self.array.shape[-1]):
+            self.array[..., i] = (self.array[..., i] - mean_value[i]) / (std_value[i])
+        
+        return self.array, mean_value, std_value
+
     def concatenate(self, x_patches: 'XPatches'):
         ''' Concatenate other XPatches array to the present XPatches array '''
         xpatches = XPatches(np.concatenate((self.array, x_patches.array), axis=-1))

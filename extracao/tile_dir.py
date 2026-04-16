@@ -153,6 +153,40 @@ class XsYsTileDir:
             patch_index += len(t2.patches.array)
             
         return [x_tiledir.concat_patches() for x_tiledir in self.x_tiledirs], min_value, max_value
+    
+    def standardize_patches(self, mean_value=None, std_value=None):  
+        ''' Normalization according to all tiles in all x tile directories '''
+        assert all(t.patches is not None for tdir in self.x_tiledirs for t in tdir.tiles), 'Patches must first be extracted with extrac_patches method'
+        assert all(tdir.tile_type == TileType.X for tdir in self.x_tiledirs), 'Only X tiles can be normalized'
+        
+        xdir_t1 = self.x_tiledirs[0]
+        xdir_t2 = self.x_tiledirs[1]
+        
+        # Concatenate patches from T1 and T2 X tile dirs
+        patches_t1 = xdir_t1.concat_patches()
+        patches_t2 = xdir_t2.concat_patches()
+        all_patches = patches_t1.concatenate(patches_t2)
+        
+        # Standardize patches
+        all_patches, mean_value, std_value = all_patches.standardize(mean_value=mean_value, std_value=std_value)
+        
+        # Update patches in tiles
+        channels_t1 = patches_t1.array.shape[-1]
+        channels_t2 = patches_t2.array.shape[-1]
+                
+        patch_index = 0 # initial patch index to extract patches of a tile 
+        for t1 in xdir_t1.tiles:
+            t1.patches = XPatches(all_patches[patch_index : patch_index+len(t1.patches.array), ..., :channels_t1])
+            patch_index += len(t1.patches.array)
+        
+        patch_index = 0
+        for t2 in xdir_t2.tiles:
+            t2.patches = XPatches(all_patches[patch_index : patch_index+len(t2.patches.array), ..., 
+                                              channels_t1:channels_t1+channels_t2])
+            patch_index += len(t2.patches.array)
+            
+        return [x_tiledir.concat_patches() for x_tiledir in self.x_tiledirs], mean_value, std_value
+               
                
 
     def filter_nodata(self, tiledir_base: TileDir, nodata_value=(255, 255, 255), nodata_tolerance=0):
