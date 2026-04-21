@@ -12,27 +12,26 @@ Created on Sun Sep  7 13:08:41 2025
 import numpy as np
 from .tile_type import TileType
 
-from typing import Type
+from typing import Type, Tuple
 
 # %% Parent class
 
 class Patches:
-    def __init__(self, array):
-        assert len(array.shape) == 4, 'Array must be in shape (Patches Length, Patch Height, Patch Width, Patch Channels)' # Array shape restriction
+    def __init__(self, array: np.ndarray):
+        assert len(array.shape) == 4, 'Shape must be (N, H, W, C)' # Array shape restriction
         self.array = array
         
-    def nodata_indexes(self, nodata_value=(255, 255, 255), nodata_tolerance=0):
-        ''' Select indexes of patches without nodata pixels or within a tolerance '''
-        assert len(nodata_value) == self.array.shape[-1], "Nodata dimension length has to match channels length"
-        
-        # Indexes of patches without nodata values (or with nodata values within tolerance)
-        # Pixel values are verified to match nodata along channels-last dimension        
-        nodata_indexes = [i for i in range(len(self.array)) if 
-                                          not np.sum( (self.array[i] == nodata_value).all(axis=-1) ) > 
-                                          nodata_tolerance]
-                
-        return nodata_indexes
+    def _get_valid_mask(self, nodata_value, nodata_tolerance) -> np.ndarray:
+        """Vectorized calculation of valid patch indices."""
+        # Check where pixels match nodata across all channels
+        is_nodata = (self.array == nodata_value).all(axis=-1)
+        # Sum nodata pixels per patch and compare to tolerance
+        return is_nodata.sum(axis=(1, 2)) <= nodata_tolerance
     
+    def nodataless_indexes(self, nodata_value=(255, 255, 255), nodata_tolerance=0):
+        mask = self._get_valid_mask(nodata_value, nodata_tolerance)
+        return np.where(mask)[0].tolist()
+        
     def __repr__(self):
         return f'{self.__class__.__name__} {self.array.shape}'
     

@@ -31,7 +31,7 @@ class PatchExtractor:
         
         self.padding = padding
         
-    def extract(self, array, get_coords=True):
+    def __call__(self, array, get_coords=True):
         """
         array: 3D array [height, width, channels]
         """

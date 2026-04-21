@@ -19,10 +19,30 @@ from package_doc.extracao.tile_dir import TileDir, XsYsTileDir
 from package_doc.extracao.tile import TileType
 from package_doc.extracao.patches import XYPatches, XPatches
 
+# %% Parameters for extraction
+
+patch_size = 64
+
+object_value = 1
+threshold_percentage = 2
+
+nodata_value = (0, 0, 0, 0, 0, 0, 0)
+nodata_tolerance = 0
+
+# --- Configuration ---
+CONFIGS = {
+    'train': {'border': True, 'filter': True, 'overlap': 0.9, 'coords': False,
+              'norm_with_train': False},
+    'valid': {'border': True, 'filter': True, 'overlap': 0.9, 'coords': False,
+              'norm_with_train': True},
+    'test':  {'border': True,  'filter': False, 'overlap': 0.75, 'coords': True,
+              'norm_with_train': True}
+}
 
 # %% X and Y Input and Output Directories
 
 group = 'train' # train, valid or test group
+cfg = CONFIGS[group]
 
 in_x_dir_t1 = fr'deforestation_dataset/PA/{group}/image/t1/'
 in_x_dir_t2 = fr'deforestation_dataset/PA/{group}/image/t2/'
@@ -33,6 +53,15 @@ in_y_dir_t2 = fr'deforestation_dataset/PA/{group}/label/t2/'
 out_x_dir = 'experimentos_deforestation/x_dir/'
 out_y_dir = 'experimentos_deforestation/y_dir/'
 
+# %% Load train parameters for normalization
+
+if cfg['norm_with_train']:
+    with open(out_y_dir / 'info_tiles_train.json') as fp:   
+        info_tiles_train = json.load(fp)
+        
+    min_value_train = info_tiles_train['min_value_train']
+    max_value_train = info_tiles_train['max_value_train']
+    
 # %% Create output directories if they don't exist
 
 if not Path(out_x_dir).exists():
@@ -41,39 +70,6 @@ if not Path(out_x_dir).exists():
 if not Path(out_y_dir).exists():
     Path(out_y_dir).mkdir()
     
-# %% Parameters for extraction
-
-patch_size=64
-
-overlap=0.9 
-
-# For train and valid groups, border patches aren't included
-# For test group, the border patches are included to make the mosaic
-if group == 'train' or group == 'valid':
-    border_patches = False
-else: # group == 'test'
-    border_patches = True
-
-# For train and valid groups, filter for patches without nodata and 
-# filter for patches with road objects 
-if group == 'train' or group == 'valid':
-    filter_nodata = True
-    nodata_value = (0, 0, 0, 0, 0, 0, 0)
-    nodata_tolerance = 0
-    
-    filter_object = True
-    object_value = 1
-    threshold_percentage = 2
-else: # group == 'test'
-    filter_nodata = False
-    nodata_value = (0, 0, 0, 0, 0, 0, 0)
-    nodata_tolerance = 0
-    
-    filter_object = False
-    object_value = 1
-    threshold_percentage = 2
-
-
 # %% X and Y Tile Directories
 
 # X Tile Dirs
@@ -115,17 +111,24 @@ xsys_tiledir = XsYsTileDir(x_tiledirs=[x_tiledir_t1, x_tiledir_t2],
 # %% Extract Patches from Xs and Ys directories
 
 
-(x_t1_patches, x_t2_patches), (y_t1_patches, y_t2_patches) = xsys_tiledir.extract_patches(patch_size=patch_size, overlap=overlap, border_patches=border_patches)
+(x_t1_patches, x_t2_patches), (y_t1_patches, y_t2_patches) = xsys_tiledir.extract_patches(patch_size=patch_size, overlap=cfg['overlap'], 
+                             border_patches=cfg['border'])
 
 
 # %% Normalize Patches of Xs directories 
 
-x_t1_patches = x_tiledir_t1.normalize_patches()
-x_t2_patches = x_tiledir_t2.normalize_patches()
+if cfg['norm_with_train']: # Valid and Test
+    (x_t1_patches, x_t2_patches), \
+    min_value, max_value = xsys_tiledir.normalize_patches(min_value=min_value_train,
+                                                                   max_value=max_value_train)    
+else: # Train
+    (x_t1_patches, x_t2_patches), \
+    min_value_train, max_value_train = xsys_tiledir.normalize_patches(min_value=None,
+                                                                      max_value=None)
 
 # %% Filter Patches with object
 
-if filter_object:
+if cfg['filter']:
     (x_t1_patches, x_t2_patches), (y_t1_patches, y_t2_patches) =  \
     xsys_tiledir.filter_object(y_tiledir_t2, 
                                threshold_percentage=threshold_percentage, 
@@ -133,7 +136,7 @@ if filter_object:
 
 # %% Filter Patches with nodata in X T2
 
-if filter_nodata:
+if cfg['filter']:
     (x_t1_patches, x_t2_patches), (y_t1_patches, y_t2_patches) =  \
     xsys_tiledir.filter_nodata(x_tiledir_t2, 
                                nodata_value=nodata_value, 
@@ -190,11 +193,34 @@ len_tiles = [len(tile.patches.array) for tile in x_tiledir_t2.tiles]
 shape_tiles = [tile.array.shape[:2] for tile in x_tiledir_t2.tiles]
 
 # Repeat stride used in this script to get to all tiles
-stride = patch_size - int(patch_size * overlap)
+stride = patch_size - int(patch_size * cfg['overlap'])
 stride_tiles = [stride]*len(shape_tiles)
 
+# Overlap to store
+overlap = [cfg['overlap']]*len(shape_tiles)
+
+# Store coords if group is test
+if cfg['coords']:
+    coords = [tile.coords for tile in x_tiledir_t2.tiles]
+    
+    
 # Info tiles dict
-info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 'stride_tiles': stride_tiles}
+if cfg['norm_with_train']:
+    if cfg['coords']: # Test
+        info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 
+                      'stride_tiles': stride_tiles, 'coords': coords,
+                      'overlap': overlap}
+    else: # Valid
+        info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 
+                      'stride_tiles': stride_tiles, 'overlap': overlap}
+else: # Train
+    # Convert elements of list from np.uint26 to int type
+    min_value_train = np.array(min_value_train).tolist()
+    max_value_train = np.array(max_value_train).tolist()
+    info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 
+                  'stride_tiles': stride_tiles, 'overlap': overlap,
+                  'min_value_train': min_value_train,
+                  'max_value_train': max_value_train}
 
 # Export dict
 info_tiles_path = Path(out_y_dir) / f'info_tiles_{group}.json'

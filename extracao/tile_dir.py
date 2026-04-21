@@ -65,8 +65,8 @@ class TileDir:
         elif self.tile_type == TileType.Y:
             return YPatches(patches)
         
-    def nodata_indexes(self, nodata_value=(255, 255, 255), nodata_tolerance=0):
-        return [tile.nodata_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
+    def nodataless_indexes(self, nodata_value=(255, 255, 255), nodata_tolerance=0):
+        return [tile.nodataless_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
                 for tile in self.tiles]
         
     def object_indexes(self, threshold_percentage=1, object_value=1):
@@ -191,16 +191,16 @@ class XsYsTileDir:
 
     def filter_nodata(self, tiledir_base: TileDir, nodata_value=(255, 255, 255), nodata_tolerance=0):
         # Nodata indexes to filter
-        nodata_indexes = tiledir_base.nodata_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
+        nodataless_indexes = tiledir_base.nodataless_indexes(nodata_value=nodata_value, nodata_tolerance=nodata_tolerance)
 
         # Update tiles patches inside tiles of directories
         for x_tiledir in self.x_tiledirs:
             for i, x_tile in enumerate(x_tiledir.tiles):
-                x_tile.patches = XPatches(x_tile.patches.array[nodata_indexes[i]])
+                x_tile.patches = XPatches(x_tile.patches.array[nodataless_indexes[i]])
                 
         for y_tiledir in self.y_tiledirs:
             for i, y_tile in enumerate(y_tiledir.tiles):
-                y_tile.patches = YPatches(y_tile.patches.array[nodata_indexes[i]])
+                y_tile.patches = YPatches(y_tile.patches.array[nodataless_indexes[i]])
         
         return [x_tiledir.concat_patches() for x_tiledir in self.x_tiledirs], [y_tiledir.concat_patches() for y_tiledir in self.y_tiledirs]
         
