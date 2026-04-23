@@ -32,16 +32,16 @@ nodata_tolerance = 0
 # --- Configuration ---
 CONFIGS = {
     'train': {'border': True, 'filter': True, 'overlap': 0.9, 'coords': False,
-              'norm_with_train': False},
+              'norm_with_train': False, 'export_dataset': True},
     'valid': {'border': True, 'filter': True, 'overlap': 0.9, 'coords': False,
-              'norm_with_train': True},
+              'norm_with_train': True, 'export_dataset': True},
     'test':  {'border': True,  'filter': False, 'overlap': 0.75, 'coords': True,
-              'norm_with_train': True}
+              'norm_with_train': True, 'export_dataset': False}
 }
 
 # %% X and Y Input and Output Directories
 
-group = 'valid' # train, valid or test group
+group = 'test' # train, valid or test group
 cfg = CONFIGS[group]
 
 in_x_dir_t1 = fr'deforestation_dataset/PA/{group}/image/t1/'
@@ -83,13 +83,13 @@ y_tiledir_t2 = TileDir(in_y_dir_t2, TileType.Y)
 
 # %% Preprocess T2 references
 
-ytiledir_t2 = y_tiledir_t2
+ytiledir_t1 = y_tiledir_t1
 dilation_px = 2
 erosion_px = 0
 
-y_t2_tiles_preprocessed = y_tiledir_t1.preprocess_reference_t2(ytiledir_t2=ytiledir_t2,
-                                                               dilation_px=dilation_px,
-                                                               erosion_px=erosion_px)
+y_t2_tiles_preprocessed = y_tiledir_t2.preprocess_reference(ytiledir_t1=ytiledir_t1,
+                                                            dilation_px=dilation_px,
+                                                            erosion_px=erosion_px)
 
 # %% Export preprocessed references
 '''
@@ -170,19 +170,20 @@ y_patches_obj.save_nparray(Path(out_y_dir) / f'y_{group}.npy')
 
 # %% Export arrays to tensorflow dataset format
 
-# Create directory
-dataset_path = Path(out_x_dir) / f'{group}_dataset'
-try:
-    shutil.rmtree(dataset_path)
-except FileNotFoundError:
-    dataset_path.mkdir()
-
-# One-hot Y patches 
-y_patches_onehot_np = y_patches_obj.onehot(num_classes=2, ignore_index=255)
-
-# Create and save dataset
-dataset =  tf.data.Dataset.from_tensor_slices((x_patches_np.astype(np.float16), y_patches_onehot_np))
-dataset.save(str(dataset_path)) 
+if cfg['export_dataset']:
+    # Create directory
+    dataset_path = Path(out_x_dir) / f'{group}_dataset'
+    try:
+        shutil.rmtree(dataset_path)
+    except FileNotFoundError:
+        dataset_path.mkdir()
+    
+    # One-hot Y patches 
+    y_patches_onehot_np = y_patches_obj.onehot(num_classes=2, ignore_index=255)
+    
+    # Create and save dataset
+    dataset =  tf.data.Dataset.from_tensor_slices((x_patches_np.astype(np.float16), y_patches_onehot_np))
+    dataset.save(str(dataset_path)) 
 
 # %% Save metadata dictionary (info tiles) to JSON
 
