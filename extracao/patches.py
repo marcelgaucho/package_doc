@@ -44,15 +44,12 @@ class XPatches(Patches):
     def normalize(self, min_value=None, max_value=None):
         '''Normalize image for each band. Use input min and max values if passed.'''
         if min_value is None:
-            min_value = [np.min(self.array[..., i]) for i in range(self.array.shape[-1])]        
+            min_value = np.min(self.array, axis=(0,1,2))        
         
         if max_value is None:
-            max_value = [np.max(self.array[..., i]) for i in range(self.array.shape[-1])]
+            max_value = np.max(self.array, axis=(0,1,2)) 
         
-        self.array = self.array.astype(np.float32) # transform array in float
-                
-        for i in range(self.array.shape[-1]):
-            self.array[..., i] = (self.array[..., i] - min_value[i]) / (max_value[i] - min_value[i])
+        self.array = (self.array - min_value) / (max_value - min_value)
         
         return self.array, min_value, max_value
     

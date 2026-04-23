@@ -41,7 +41,7 @@ CONFIGS = {
 
 # %% X and Y Input and Output Directories
 
-group = 'train' # train, valid or test group
+group = 'valid' # train, valid or test group
 cfg = CONFIGS[group]
 
 in_x_dir_t1 = fr'deforestation_dataset/PA/{group}/image/t1/'
@@ -56,11 +56,11 @@ out_y_dir = 'experimentos_deforestation/y_dir/'
 # %% Load train parameters for normalization
 
 if cfg['norm_with_train']:
-    with open(out_y_dir / 'info_tiles_train.json') as fp:   
+    with open(Path(out_y_dir) / 'info_tiles_train.json') as fp:   
         info_tiles_train = json.load(fp)
         
-    min_value_train = info_tiles_train['min_value_train']
-    max_value_train = info_tiles_train['max_value_train']
+    min_value_train = np.array(info_tiles_train['min_value_train'])
+    max_value_train = np.array(info_tiles_train['max_value_train'])
     
 # %% Create output directories if they don't exist
 
@@ -190,7 +190,7 @@ dataset.save(str(dataset_path))
 len_tiles = [len(tile.patches.array) for tile in x_tiledir_t2.tiles]
 
 # Get shape of tiles of X Tile Dir
-shape_tiles = [tile.array.shape[:2] for tile in x_tiledir_t2.tiles]
+shape_tiles = [tile.array.shape for tile in x_tiledir_t2.tiles]
 
 # Repeat stride used in this script to get to all tiles
 stride = patch_size - int(patch_size * cfg['overlap'])
@@ -199,28 +199,29 @@ stride_tiles = [stride]*len(shape_tiles)
 # Overlap to store
 overlap = [cfg['overlap']]*len(shape_tiles)
 
-# Store coords if group is test
-if cfg['coords']:
-    coords = [tile.coords for tile in x_tiledir_t2.tiles]
-    
-    
+# Get patch size of the extraction
+patch_sizes = [patch_size*len(shape_tiles)]
+
 # Info tiles dict
 if cfg['norm_with_train']:
+    # Store coords if group is test
     if cfg['coords']: # Test
+        coords_path = Path(out_y_dir) / f'coords_{group}.npz'
+        coords = [tile.coords for tile in x_tiledir_t2.tiles]
         info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 
-                      'stride_tiles': stride_tiles, 'coords': coords,
-                      'overlap': overlap}
+                      'stride_tiles': stride_tiles, 'overlap': overlap, 
+                      'patch_sizes': patch_sizes, 'coords_path': str(coords_path)}
+        np.savez_compressed(coords_path, coords=coords)
     else: # Valid
         info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 
-                      'stride_tiles': stride_tiles, 'overlap': overlap}
+                      'stride_tiles': stride_tiles, 'overlap': overlap,
+                      'patch_sizes': patch_sizes}
 else: # Train
-    # Convert elements of list from np.uint26 to int type
-    min_value_train = np.array(min_value_train).tolist()
-    max_value_train = np.array(max_value_train).tolist()
     info_tiles = {'len_tiles': len_tiles, 'shape_tiles': shape_tiles, 
                   'stride_tiles': stride_tiles, 'overlap': overlap,
-                  'min_value_train': min_value_train,
-                  'max_value_train': max_value_train}
+                  'patch_sizes': patch_sizes,
+                  'min_value_train': min_value_train.tolist(),
+                  'max_value_train': max_value_train.tolist()}
 
 # Export dict
 info_tiles_path = Path(out_y_dir) / f'info_tiles_{group}.json'
