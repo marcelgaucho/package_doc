@@ -164,7 +164,8 @@ class ModelEvaluator:
         if evaluate_test:
             self._evaluate_test(buffers_px=buffers_px, include_avg_precision=include_avg_precision) 
             
-    def build_test_mosaics(self, prefix='outmosaic', export_mosaics=False, ignore_index=255):
+    def build_test_mosaics(self, prefix='outmosaic', export_pred_mosaics=False, 
+                           export_prob_mosaics=False, ignore_index=255):
         if self.label_tiles_dir is None:
             raise Exception("Couldn't build mosaics because the label tiles directory was not informed")
             
@@ -188,17 +189,17 @@ class ModelEvaluator:
             mosaics.mosaics[self.y_mosaics == ignore_index] = ignore_index            
             
         mosaics.save_mosaics(prefix='pred')
-        if export_mosaics:
+        if export_pred_mosaics:
             mosaics.export_mosaics(prefix=prefix+'_pred_')
         
         # Build, save and export mosaics for prob
         mosaics = MosaicGenerator(test_array=prob_test, info_tiles=info_tiles_test, tiles_dir=self.label_tiles_dir,
                                   output_dir=self.output_dir)
-        mosaics.build_mosaics()
+        mosaics.build_mosaics(dtype=np.float32)
         if ignore_in_y_mosaics:
             mosaics.mosaics[self.y_mosaics == ignore_index] = ignore_index 
         mosaics.save_mosaics(prefix='prob')
-        if export_mosaics:
+        if export_prob_mosaics:
             mosaics.export_mosaics(prefix=prefix+'_prob_')
         
     def evaluate_mosaics(self, buffers_px=[3], include_avg_precision=False):

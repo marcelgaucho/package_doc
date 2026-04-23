@@ -42,7 +42,8 @@ label_tiles_dir = 'tiles_t2_preprocessed/test/' # dir of test labels
 # %% Parameters for evaluation
 
 prefix = 'outmosaic'
-export_mosaics = False
+export_pred_mosaics = False
+export_prob_mosaics = False
 
 buffers = [0]
 include_avg_precision = False # Also evaluate average precision (in addition to precision, recall and F1)
@@ -67,7 +68,8 @@ evaluator.evaluate_model(evaluate_train=evaluate_train,
 
 # %% Build mosaics
 
-evaluator.build_test_mosaics(prefix=prefix, export_mosaics=export_mosaics)
+evaluator.build_test_mosaics(prefix=prefix, export_pred_mosaics=export_pred_mosaics,
+                             export_prob_mosaics=export_prob_mosaics)
 
 
 # %% Evaluate mosaics

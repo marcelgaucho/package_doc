@@ -12,6 +12,7 @@ Created on Thu Aug  1 21:44:56 2024
 import numpy as np
 from .mosaic_utils import unpatch_reference, save_raster_reference
 from .utils import stack_uneven
+from ..extracao.patch_merging import MidpointPatchMerger
 from pathlib import Path
 
 # %% Class to generate mosaics
@@ -22,20 +23,23 @@ class MosaicGenerator:
         
         self.len_tiles = info_tiles['len_tiles']
         self.shape_tiles = info_tiles['shape_tiles']
-        self.stride_tiles = info_tiles['stride_tiles']
+        self.patch_sizes = info_tiles['patch_sizes']
+        self.overlap = info_tiles['overlap']
+        
+        self.coords = np.load(info_tiles['coords_path'])['coords']
         
         self.tiles_dir = Path(tiles_dir)
         
         self.output_dir = Path(output_dir)
         
-        self.mosaics = None
+        self.mosaics = None        
         
     def _set_labels_paths(self):
         self.labels_paths = [path for path in self.tiles_dir.iterdir() 
                              if path.suffix=='.tiff' or path.suffix=='.tif']
         self.labels_paths.sort()
         
-    def build_mosaics(self):
+    def build_mosaics(self, dtype=np.uint8):
         # Total number of mosaics
         n_mosaics = len(self.shape_tiles)
         
@@ -50,18 +54,20 @@ class MosaicGenerator:
             print(f'Building Mosaic {i_mosaic+1:>5d}/{n_mosaics:>5d}')
             
             patches_mosaic = self.test_array[i_tile_start:i_tile_start+self.len_tiles[i_mosaic],
-                                            :, :, 0]
+                                            :, :, :]
             
-            mosaic = unpatch_reference(patches=patches_mosaic, 
-                                       stride=self.stride_tiles[i_mosaic], 
-                                       reference_shape=self.shape_tiles[i_mosaic],
-                                       border_patches=True)
+            merger = MidpointPatchMerger(target_shape=self.shape_tiles[i_mosaic], 
+                                         patch_size=self.patch_sizes[i_mosaic], 
+                                         overlap_percent=self.overlap[i_mosaic])
+            
+            mosaic = merger(patches=patches_mosaic, coords=self.coords[i_mosaic],
+                            dtype=dtype)
             
             mosaics.append(mosaic)
             
             i_tile_start += self.len_tiles[i_mosaic] # Update index where tile starts
             
-        self.mosaics = stack_uneven(mosaics)[..., np.newaxis] # Transform mosaics list to array
+        self.mosaics = stack_uneven(mosaics) # Transform mosaics list to array
             
         return mosaics
     

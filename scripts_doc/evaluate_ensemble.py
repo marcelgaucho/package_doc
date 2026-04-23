@@ -46,7 +46,8 @@ outputs_dir = Path(outputs_dir)
 # %% Parameters for evaluation
 
 prefix = 'outmosaic'
-export_mosaics = False
+export_pred_mosaics = False
+export_prob_mosaics = False
 
 buffers = [0]
 
@@ -75,7 +76,8 @@ for d in model_dirs:
                              include_avg_precision=include_avg_precision)
     
     # Build mosaics
-    evaluator.build_test_mosaics(prefix=prefix, export_mosaics=export_mosaics)
+    evaluator.build_test_mosaics(prefix=prefix, export_pred_mosaics=export_pred_mosaics,
+                                 export_prob_mosaics=export_prob_mosaics)
     
     # Evaluate mosaics    
     evaluator.evaluate_mosaics(buffers_px=buffers, include_avg_precision=include_avg_precision) 
