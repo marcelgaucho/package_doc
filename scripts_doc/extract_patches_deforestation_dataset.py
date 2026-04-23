@@ -190,7 +190,7 @@ dataset.save(str(dataset_path))
 len_tiles = [len(tile.patches.array) for tile in x_tiledir_t2.tiles]
 
 # Get shape of tiles of X Tile Dir
-shape_tiles = [tile.array.shape for tile in x_tiledir_t2.tiles]
+shape_tiles = [tile.array.shape for tile in y_tiledir_t2.tiles]
 
 # Repeat stride used in this script to get to all tiles
 stride = patch_size - int(patch_size * cfg['overlap'])
@@ -200,7 +200,7 @@ stride_tiles = [stride]*len(shape_tiles)
 overlap = [cfg['overlap']]*len(shape_tiles)
 
 # Get patch size of the extraction
-patch_sizes = [patch_size*len(shape_tiles)]
+patch_sizes = [patch_size]*len(shape_tiles)
 
 # Info tiles dict
 if cfg['norm_with_train']:
