@@ -34,6 +34,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import CategoricalCrossentropy
 from pathlib import Path
 import pdb
+import numpy as np
 
 # %% Limit GPU Memory or, in case of no gpu available, limit number of threads used
 
@@ -55,22 +56,26 @@ batch_size = 2
 model_type = 'resunet'
 early_stopping_epochs = 3
 
-input_shape = (256, 256, 4)
-n_classes = 2
-
 # %% Input and output directories
 
-# x_dir = r'entrada/'
-# y_dir = r'y_directory/'
 x_dir = r'teste_x1/'
 y_dir = r'teste_y1/'
 output_dir = fr'saida_{model_type}_loop_2x_{batch_size}b/'
 
+# %% Input shape and numper of classes
+
+# Get array without opening array into memory
+with open(x_dir / 'x_train.npy', 'rb') as f:
+    major, minor = np.lib.format.read_magic(f)
+    shape, fortran_order, dtype = np.lib.format.read_array_header_1_0(f)
+    
+input_shape = shape[1:] # (patch_size, patch_size, channels)
+n_classes = 2
 
 # %% Imports from package
 
 from package_doc.treinamento.trainer import ModelTrainer
-from package_doc.treinamento.f1_metric import F1Score, RelaxedF1Score
+from package_doc.treinamento.f1_metric import F1Score, RelaxedF1Score, MaskedPrecision, MaskedRecall, MaskedF1Score
 from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
 
@@ -92,8 +97,8 @@ if not Path(output_dir).exists():
 model_trainer = ModelTrainer(x_dir=x_dir, y_dir=y_dir, output_dir=output_dir, model=model,
                              optimizer=optimizer)
 result = model_trainer.train_with_loop(epochs=2000, early_stopping_epochs=early_stopping_epochs,
-                                       metrics_train=[RelaxedF1Score(), Precision(class_id=1), Recall(class_id=1)],
-                                       metrics_val=[RelaxedF1Score(), Precision(class_id=1), Recall(class_id=1)],
+                                       metrics_train=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
+                                       metrics_val=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
                                        learning_rate=0.001, 
                                        loss_fn=CategoricalCrossentropy(from_logits=False),
                                        buffer_shuffle=None, batch_size=batch_size,

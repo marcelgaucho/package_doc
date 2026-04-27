@@ -30,7 +30,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU'))) # Print 0 gpus (gpu disabled)
 
-cpu_threads = 3
+cpu_threads = 2
 
 print(f"Number of CPU threads used in evaluation: {cpu_threads}") 
 
@@ -68,7 +68,7 @@ model_name = 'resunet'
 
 metric_uncertainty = UncertaintyMetric.Entropy
 
-prefix = f'mosaic_{metric_uncertainty}_'
+prefix = f'mosaic_{metric_uncertainty.value}_'
 export_mosaics = True
 
 scale_result = True
@@ -93,22 +93,22 @@ uncertainty_calc = UncertaintyCalculator(model_dirs=model_dirs, data_group=data_
 if metric_uncertainty == UncertaintyMetric.Entropy:
     entropy = uncertainty_calc.entropy(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                perc_cut=perc_cut)
-    np.save(folder_uncertainty / f'{UncertaintyMetric.Entropy}_{data_group}.npy', entropy)
+    np.save(folder_uncertainty / f'{UncertaintyMetric.Entropy.value}_{data_group.value}.npy', entropy)
     uncertainty_array = entropy
 elif metric_uncertainty == UncertaintyMetric.Surprise:
     surprise = uncertainty_calc.surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                  perc_cut=perc_cut)
-    np.save(folder_uncertainty / f'{UncertaintyMetric.Surprise}_{data_group}.npy', surprise)
+    np.save(folder_uncertainty / f'{UncertaintyMetric.Surprise.value}_{data_group.value}.npy', surprise)
     uncertainty_array = surprise
 elif metric_uncertainty == UncertaintyMetric.WeightedSurprise:
     weighted_surprise = uncertainty_calc.weighted_surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                                    perc_cut=perc_cut)
-    np.save(folder_uncertainty / f'{UncertaintyMetric.WeightedSurprise}_{data_group}.npy', weighted_surprise)
+    np.save(folder_uncertainty / f'{UncertaintyMetric.WeightedSurprise.value}_{data_group.value}.npy', weighted_surprise)
     uncertainty_array = weighted_surprise
 elif metric_uncertainty == UncertaintyMetric.ProbMean:
     prob_mean = uncertainty_calc.prob_mean(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                    perc_cut=perc_cut)
-    np.save(folder_uncertainty / f'{UncertaintyMetric.ProbMean}_{data_group}.npy', prob_mean)
+    np.save(folder_uncertainty / f'{UncertaintyMetric.ProbMean.value}_{data_group.value}.npy', prob_mean)
     uncertainty_array = prob_mean
 
 # %% Load reference mosaics and check if exists ignored index
