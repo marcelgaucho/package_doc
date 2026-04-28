@@ -13,15 +13,16 @@ import numpy as np
 import tensorflow as tf
 from .utils import transform_augment
 from inspect import signature
+import matplotlib.pyplot as plt
 
 # %% Do a train step
 
-@tf.function
-def train_step(x, y, model, loss_fn, optimizer, metrics_train, input_tensor=False):
+# @tf.function
+def train_step(x, y, model, loss_fn, optimizer, metrics_train, entropy_weight=None):
     with tf.GradientTape() as tape:
         model_result = model(x, training=True)
-        if input_tensor:
-            loss_value = loss_fn(y, model_result, input_tensor=x)
+        if entropy_weight is not None:
+            loss_value = loss_fn(y, model_result, entropy_weight=entropy_weight)
         else:
             loss_value = loss_fn(y, model_result)
     
@@ -123,7 +124,14 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         valid_loss = 0
         
         # Loop through dataset batches
-        for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+        for step, (batches) in enumerate(train_dataset):
+            # Set variables according to dataset width (entropy may be passed)
+            if len(train_dataset.element_spec) == 2:
+                x_batch_train, y_batch_train = batches
+            elif len(train_dataset.element_spec) == 3:
+                x_batch_train, y_batch_train, entropy_batch_train = batches
+                entropy_in_data = True
+            
             if data_augmentation:
                 # Compute "new" batches 
                 x_batches_train_augmented = []
@@ -132,7 +140,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                     x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment, (x_batch_train, y_batch_train))
                     x_batches_train_augmented.append(x_batch_train_augmented)
                     y_batches_train_augmented.append(y_batch_train_augmented)
-                    
+                
+                # plt.imshow(tf.cast(x_batch_train_augmented[0][:, :, 3:0:-1], tf.float32)) # Inspect an augmented patch
                 # Concatenate original batch with new "batches"
                 x_batch_train = tf.concat([x_batch_train] + x_batches_train_augmented, axis=0) 
                 y_batch_train = tf.concat([y_batch_train] + y_batches_train_augmented, axis=0)                    
@@ -142,21 +151,10 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 gc.collect()
 
             # Train Step
-            if 'input_tensor' in loss_parameters_names:
-                # # Mask tensor to use to normalize tensor range only of uncertainty
-                # mask = tf.concat(
-                #        (tf.ones(x_batch_train.shape[:3] + (x_batch_train.shape[3]-1,), dtype=tf.float16),
-                #        tf.zeros(x_batch_train.shape[:3] + (1,), dtype=tf.float16)), axis=-1,
-                #        )
-                # x_batch_train = x_batch_train*mask +  (x_batch_train * (1 - 0.5) + 0.5)*(1-mask) # Scale uncertainty to [0.5, 1]            
-                # x_batch_train[..., -1] = x_batch_train[..., -1] * (1 - 0.5) + 0.5 # Scale uncertainty to [0.5, 1]
-                
-                # Scale uncertainty
-                # x_batch_train = scale_tensor_uncertainty(batch_tensor=x_batch_train, min_target_scale=0.5, max_target_scale=1)
-                
-                loss_value = train_step(scale_tensor_uncertainty(batch_tensor=x_batch_train, min_target_scale=0.5, max_target_scale=1), 
+            if entropy_in_data:
+                loss_value = train_step(x_batch_train, 
                                         y_batch_train, model, loss_fn, optimizer, metrics_train,
-                                        input_tensor=True)
+                                        entropy_weight=entropy_batch_train)
             else:
                 loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
             
@@ -181,22 +179,18 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             train_metric.reset_state() # Reset train metric in the end of the epoch
             
         # Compute validation results in the end of the epoch
-        for x_batch_val, y_batch_val in valid_dataset:
+        for (batches) in valid_dataset:
+            # Set variables according to dataset width (entropy may be passed)
+            if len(valid_dataset.element_spec) == 2:
+                x_batch_val, y_batch_val = batches
+            elif len(valid_dataset.element_spec) == 3:
+                x_batch_val, y_batch_val, entropy_batch_val = batches
+            
             # Validation step
-            if 'input_tensor' in loss_parameters_names:
-                # mask = tf.concat(
-                #        (tf.ones(x_batch_val.shape[:3] + (x_batch_val.shape[3]-1,), dtype=tf.float16),
-                #        tf.zeros(x_batch_val.shape[:3] + (1,), dtype=tf.float16)), axis=-1,
-                #        )
-                # x_batch_val = x_batch_val*mask +  (x_batch_val * (1 - 0.5) + 0.5)*(1-mask) # Scale uncertainty to [0.5, 1] 
-                # x_batch_val[..., -1] = x_batch_val[..., -1] * (1 - 0.5) + 0.5 # Scale uncertainty to [0.5, 1]
-                
-                # Scale uncertainty
-                # x_batch_val = scale_tensor_uncertainty(batch_tensor=x_batch_val, min_target_scale=0.5, max_target_scale=1)
-                
+            if entropy_in_data:
                 loss_value = test_step(x_batch_val, 
                                        y_batch_val, model, loss_fn, metrics_val,
-                                       input_tensor=True)
+                                       entropy_weight=entropy_batch_val)
             else:
                 loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val)
 

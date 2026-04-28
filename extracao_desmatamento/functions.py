@@ -20,10 +20,6 @@ from package_doc.extracao_desmatamento.utils import (load_geo_file,
 
 from skimage.morphology import disk, dilation, erosion
 
-
-    
-     
-
 # %%
 
 class PatchProcessor:
@@ -42,6 +38,10 @@ class PatchProcessor:
         self.info_tiles_valid = None
         self.info_tiles_test = None
         
+        self.coords_train = None
+        self.coords_valid = None
+        self.coords_test = None
+        
     def export_info(self, split_name='test', out_dir='./'):
         with open(Path(out_dir) / f'info_tiles_{split_name}.json', 'w') as f:
             json.dump( self.info_tiles_test, f, indent=4)
@@ -58,7 +58,7 @@ class PatchProcessor:
         
         x_all, y_all = [], []
         lbl_t2_paths = []
-        coords_all = []
+        coords_all = {}
         meta_tiles = []
         
         # Iterate through t1 files and find matches in other folders
@@ -92,7 +92,7 @@ class PatchProcessor:
             
             object_indexes = IndexesFinder(y_p).object_patches(threshold=0.02,
                                                                target_class=1)
-            x_p, y_p, coords = x_p[object_indexes], y_p[object_indexes], coords[object_indexes]    
+            x_p, y_p, coords = x_p[object_indexes], y_p[object_indexes], coords[object_indexes] # By Object  
             
             # Store these specifically for this file
             tile_info = {
@@ -101,17 +101,28 @@ class PatchProcessor:
                 "len_patches": len(coords)
             }
             meta_tiles.append(tile_info)
+            
+            coords_all[str(yt2_path)] = coords
     
             x_all.append(x_p)
             y_all.append(y_p)
-            lbl_t2_paths.append(str(lbl_t2_dir / fname))
+            lbl_t2_paths.append(str(yt2_path))
             coords_all.append(coords)
+        
+        # Set tile info in object
+        setattr(self, f'info_tiles_{split_name}', meta_tiles)
+        
+        # Set coords of split in object
+        setattr(self, f'coords_{split_name}', coords_all)
             
-        with open(f'testes2/info_tiles_{split_name}.json', 'w') as f:
-            json.dump(meta_tiles, f, indent=4)
-    
-        return (np.concatenate(x_all, axis=0), np.concatenate(y_all, axis=0), 
-               lbl_t2_paths, coords_all)    
+        return (np.concatenate(x_all, axis=0), np.concatenate(y_all, axis=0))
+
+    def export_tile_info(self, split_name='test', out_path=None):
+        with open(out_path, 'w') as f:
+            json.dump(getattr(self, f'info_tiles_{split_name}'), f, indent=4)
+            
+    def export_coords(self, split_name='test', out_path=None):
+        np.savez_compressed(out_path, **getattr(self, f'coords_{split_name}'))
         
     def __repr__(self):
         return f'PatchProcessor (base_path={self.base_path}, ' \

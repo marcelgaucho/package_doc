@@ -52,15 +52,22 @@ else:
 
 # %% Data for Script
 
-batch_size = 2
+batch_size = 16
 model_type = 'resunet'
-early_stopping_epochs = 3
+early_stopping_epochs = 2
 
 # %% Input and output directories
 
-x_dir = r'teste_x1/'
-y_dir = r'teste_y1/'
-output_dir = fr'saida_{model_type}_loop_2x_{batch_size}b/'
+x_dir = r'experimentos_deforestation/x_dir/'
+y_dir = r'experimentos_deforestation/y_dir/'
+output_dir = fr'experimentos_deforestation/out_resunet/out_{model_type}/t_0/'
+entropy_dir = r'experimentos_deforestation/out_resunet/uncertainty/'
+
+# %%
+
+x_dir = Path(x_dir)
+y_dir = Path(y_dir)
+output_dir = Path(output_dir)
 
 # %% Input shape and numper of classes
 
@@ -75,9 +82,16 @@ n_classes = 2
 # %% Imports from package
 
 from package_doc.treinamento.trainer import ModelTrainer
-from package_doc.treinamento.f1_metric import F1Score, RelaxedF1Score, MaskedPrecision, MaskedRecall, MaskedF1Score
+from package_doc.treinamento.metrics import CustomF1Score, RelaxedF1Score, MaskedPrecision, MaskedRecall, MaskedF1Score
 from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
+from package_doc.treinamento.custom_loss import CustomEntropyLoss, masked_weighted_cce, custom_entropy_loss
+
+
+# %% Build categorical cross-entropy
+
+weights = [0.4, 2.0]
+weighted_cross = masked_weighted_cce(weights)
 
 
 # %% Build model
@@ -99,10 +113,11 @@ model_trainer = ModelTrainer(x_dir=x_dir, y_dir=y_dir, output_dir=output_dir, mo
 result = model_trainer.train_with_loop(epochs=2000, early_stopping_epochs=early_stopping_epochs,
                                        metrics_train=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
                                        metrics_val=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-                                       learning_rate=0.001, 
-                                       loss_fn=CategoricalCrossentropy(from_logits=False),
+                                       learning_rate=0.0001, 
+                                       loss_fn=custom_entropy_loss,
                                        buffer_shuffle=None, batch_size=batch_size,
-                                       data_augmentation=True, augment_batch_factor=2)
+                                       data_augmentation=True, augment_batch_factor=2,
+                                       entropy_dir=entropy_dir)
 del model_trainer
 
                   

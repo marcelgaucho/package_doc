@@ -18,11 +18,11 @@ class CustomEntropyLoss(Loss):
     def __init__(self, name="custom_cross_entropy", **kwargs):
         super().__init__(name=name, **kwargs)
         
-    def __call__(self, y_true, y_pred, input_tensor):
+    def __call__(self, y_true, y_pred, entropy_weight):
         # cast y_true, y_pred and entropy (extracted from input_tensor) as float dtype
         y_true = tf.cast(y_true, tf.float32)
         y_pred = tf.cast(y_pred, tf.float32)
-        entropy = tf.cast(input_tensor[..., 3:4], tf.float32)
+        entropy = tf.cast(entropy_weight[..., 3:4], tf.float32)
         
         # Compute cross-entropy with TF class 
         cross_loss = CategoricalCrossentropy(reduction='none')
@@ -92,10 +92,15 @@ def masked_cce(y_true, y_pred):
 
 # %% Custom entropy loss
 
-def custom_entropy_loss(y_true, y_pred, external_entropy_weight):
+def custom_entropy_loss(y_true, y_pred, entropy_weight):
+    # Cast entropy as float32
+    entropy_weight = tf.cast(entropy_weight, tf.float32)
+    
     # Standard CE
     ce = tf.keras.losses.categorical_crossentropy(y_true, y_pred)
+    ce = tf.expand_dims(ce, axis=-1)
+    
     # Multiply by your specific tensor (ensure shapes match)
-    return tf.reduce_mean(ce * external_entropy_weight)
+    return tf.reduce_mean(ce * entropy_weight)
 
 
