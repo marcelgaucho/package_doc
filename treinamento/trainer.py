@@ -54,10 +54,24 @@ class ModelTrainer:
         
         self.model_path = Path(output_dir) / self.best_model_filename # Path to save model
         
-    def _set_datasets(self):
+    def _set_datasets(self, entropy_dir):
         # Load Datasets
         self.train_dataset = tf.data.Dataset.load(str(self.x_dir / 'train_dataset/'))
         self.valid_dataset = tf.data.Dataset.load(str(self.x_dir / 'valid_dataset/'))
+        
+        # Handle entropy if available
+        if entropy_dir:
+            # Load Entropy NumPy arrays if available
+            entropy_train_np = np.load(Path(entropy_dir) / 'entropy_train.npy') #.astype(np.float32)
+            entropy_valid_np = np.load(Path(entropy_dir) / 'entropy_valid.npy') #.astype(np.float32)
+            
+            # Create weight datasets
+            weights_train = tf.data.Dataset.from_tensor_slices(entropy_train_np)
+            weights_valid = tf.data.Dataset.from_tensor_slices(entropy_valid_np)
+            
+            # Zip them together: ( (x, y), weight ) -> (x, y, weight)
+            self.train_dataset = tf.data.Dataset.zip((self.train_dataset, weights_train)).map(lambda xy, w: (xy[0], xy[1], w))
+            self.valid_dataset = tf.data.Dataset.zip((self.valid_dataset, weights_valid)).map(lambda xy, w: (xy[0], xy[1], w))
         
     def _set_numpy_arrays(self, convert_to_tensor=False):
         # Load Y Train, do One-Hot encoding if necessary. If specified, convert to tensor and clean memory 
@@ -98,7 +112,7 @@ class ModelTrainer:
                         learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
                         early_stopping_on_metric=True,
-                        augment_batch_factor=2, use_lr_decay=True):
+                        augment_batch_factor=2, use_lr_decay=True, entropy_dir=None):
         # Lists of metrics must not be empty
         assert len(metrics_train) > 0, "List of metrics on train must have at least one element"
         assert len(metrics_val) > 0, "List of metrics on validation must have at least one element"
@@ -121,7 +135,7 @@ class ModelTrainer:
             batch_size = batch_size // augment_batch_factor
         
         # Set datasets
-        self._set_datasets()
+        self._set_datasets(entropy_dir)
         
         # Optimizer and learning rate
         optimizer = self.optimizer

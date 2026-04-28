@@ -98,8 +98,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     is used; in both cases the best performance, on metric or loss, is saved.
     '''
     # Parameters of loss call (more than y_true and y_pred?)
-    sig_losscall = signature(loss_fn.__call__)
-    loss_parameters_names = [param.name for param in sig_losscall.parameters.values()]
+    sig = signature(loss_fn)
+    loss_parameters_names = [name for name in sig.parameters.keys() if name not in ('self', 'cls')]
     
     # Loss and metric values are stored in lists
     history_train = [] 

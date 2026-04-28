@@ -90,4 +90,12 @@ def masked_cce(y_true, y_pred):
     # Return the division
     return tf.reduce_sum(masked_loss) / denominator
 
+# %% Custom entropy loss
+
+def custom_entropy_loss(y_true, y_pred, external_entropy_weight):
+    # Standard CE
+    ce = tf.keras.losses.categorical_crossentropy(y_true, y_pred)
+    # Multiply by your specific tensor (ensure shapes match)
+    return tf.reduce_mean(ce * external_entropy_weight)
+
 
