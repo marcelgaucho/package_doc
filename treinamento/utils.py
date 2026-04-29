@@ -215,3 +215,57 @@ def transform_augment(x_y):
         x = tf.image.rot90(tf.image.flip_up_down(x), k=3)
         y = tf.image.rot90(tf.image.flip_up_down(y), k=3)
         return (x, y)
+
+
+# %% Augment the data by applying a random transformation to a patch, its reference and the entropy
+
+def transform_augment_xye(x_y_e):
+    x, y, e = x_y_e
+    
+    # Sorteia opção
+    lista_opcoes = [1, 2, 3, 4, 5, 6, 7]
+    opcao = random.choice(lista_opcoes)
+    
+    # Decide opção
+    # Espelhamento Vertical (Flip)
+    if opcao == 1:
+        x = tf.image.flip_up_down(x)
+        y = tf.image.flip_up_down(y)
+        e = tf.image.flip_up_down(e)
+        return x, y, e
+    # Espelhamento Horizontal (Mirror)
+    elif opcao == 2:
+        x = tf.image.flip_left_right(x)
+        y = tf.image.flip_left_right(y)
+        e = tf.image.flip_left_right(e)
+        return x, y, e
+    # Rotação 90 graus
+    elif opcao == 3:
+        x = tf.image.rot90(x, k=1)
+        y = tf.image.rot90(y, k=1)
+        e = tf.image.rot90(e, k=1)
+        return x, y, e
+    # Rotação 180 graus
+    elif opcao == 4:
+        x = tf.image.rot90(x, k=2)
+        y = tf.image.rot90(y, k=2)
+        e = tf.image.rot90(e, k=2)
+        return x, y, e
+    # Rotação 270 graus
+    elif opcao == 5:
+        x = tf.image.rot90(x, k=3)
+        y = tf.image.rot90(y, k=3)
+        e = tf.image.rot90(e, k=3)
+        return x, y, e
+    # Espelhamento Vertical e Rotação 90 graus
+    elif opcao == 6:
+        x = tf.image.rot90(tf.image.flip_up_down(x), k=1)
+        y = tf.image.rot90(tf.image.flip_up_down(y), k=1)
+        e = tf.image.rot90(tf.image.flip_up_down(e), k=1)
+        return x, y, e
+    # Espelhamento Vertical e Rotação 270 graus
+    elif opcao == 7:
+        x = tf.image.rot90(tf.image.flip_up_down(x), k=3)
+        y = tf.image.rot90(tf.image.flip_up_down(y), k=3)
+        e = tf.image.rot90(tf.image.flip_up_down(e), k=3)
+        return x, y, e

@@ -11,7 +11,7 @@ Created on Wed Jul 31 20:18:54 2024
 import time, gc
 import numpy as np
 import tensorflow as tf
-from .utils import transform_augment
+from .utils import transform_augment, transform_augment_xye
 from inspect import signature
 import matplotlib.pyplot as plt
 
@@ -129,32 +129,43 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             if len(train_dataset.element_spec) == 2:
                 x_batch_train, y_batch_train = batches
             elif len(train_dataset.element_spec) == 3:
-                x_batch_train, y_batch_train, entropy_batch_train = batches
+                x_batch_train, y_batch_train, e_batch_train = batches
                 entropy_in_data = True
             
             if data_augmentation:
                 # Compute "new" batches 
                 x_batches_train_augmented = []
                 y_batches_train_augmented = []
-                for _ in range(augment_batch_factor-1):
-                    x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment, (x_batch_train, y_batch_train))
-                    x_batches_train_augmented.append(x_batch_train_augmented)
-                    y_batches_train_augmented.append(y_batch_train_augmented)
+                e_batches_train_augmented = []
+                if not entropy_in_data:                        
+                    for _ in range(augment_batch_factor-1):
+                        x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment, (x_batch_train, y_batch_train))
+                        x_batches_train_augmented.append(x_batch_train_augmented)
+                        y_batches_train_augmented.append(y_batch_train_augmented)
+                else:
+                    for _ in range(augment_batch_factor-1):
+                        x_batch_train_augmented, y_batch_train_augmented, e_batch_train_augmented  = vectorized_map(transform_augment_xye, (x_batch_train, y_batch_train, e_batch_train))
+                        x_batches_train_augmented.append(x_batch_train_augmented)
+                        y_batches_train_augmented.append(y_batch_train_augmented)
+                        e_batches_train_augmented.append(e_batch_train_augmented)                   
                 
                 # plt.imshow(tf.cast(x_batch_train_augmented[0][:, :, 3:0:-1], tf.float32)) # Inspect an augmented patch
                 # Concatenate original batch with new "batches"
                 x_batch_train = tf.concat([x_batch_train] + x_batches_train_augmented, axis=0) 
-                y_batch_train = tf.concat([y_batch_train] + y_batches_train_augmented, axis=0)                    
+                y_batch_train = tf.concat([y_batch_train] + y_batches_train_augmented, axis=0)
+                if entropy_in_data: e_batch_train = tf.concat([e_batch_train] + e_batches_train_augmented, axis=0)                    
                 
                 # Delete computed variables
                 del x_batch_train_augmented, y_batch_train_augmented, x_batches_train_augmented[:], y_batches_train_augmented[:]
+                if entropy_in_data:
+                    del e_batch_train_augmented, e_batches_train_augmented[:]
                 gc.collect()
 
             # Train Step
             if entropy_in_data:
                 loss_value = train_step(x_batch_train, 
                                         y_batch_train, model, loss_fn, optimizer, metrics_train,
-                                        entropy_weight=entropy_batch_train)
+                                        entropy_weight=e_batch_train)
             else:
                 loss_value = train_step(x_batch_train, y_batch_train, model, loss_fn, optimizer, metrics_train)
             
@@ -184,13 +195,13 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             if len(valid_dataset.element_spec) == 2:
                 x_batch_val, y_batch_val = batches
             elif len(valid_dataset.element_spec) == 3:
-                x_batch_val, y_batch_val, entropy_batch_val = batches
+                x_batch_val, y_batch_val, e_batch_val = batches
             
             # Validation step
             if entropy_in_data:
                 loss_value = test_step(x_batch_val, 
                                        y_batch_val, model, loss_fn, metrics_val,
-                                       entropy_weight=entropy_batch_val)
+                                       entropy_weight=e_batch_val)
             else:
                 loss_value = test_step(x_batch_val, y_batch_val, model, loss_fn, metrics_val)
 

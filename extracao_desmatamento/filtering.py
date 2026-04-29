@@ -24,6 +24,7 @@ class IndexesFinder:
         self.data = data
         
     def object_patches(self, threshold=0.01, target_class=1):
+        """Returns indices of patches containing at least 'threshold' (%) of target_class."""
         # 1. Calculate total pixels per patch (Height * Width)
         pixels_per_patch = self.data.shape[1] * self.data.shape[2]
         
@@ -42,6 +43,7 @@ class IndexesFinder:
         return object_patches_indices
     
     def nodataless_patches(self, nodata_value=255, nodata_tolerance=0):
+        """Returns indices of patches with no-data pixels at or below the tolerance."""
         # 1. Mask nodata pixels (nodata_value across all channels)
         is_nodata = (self.data == nodata_value).all(axis=-1)
         
