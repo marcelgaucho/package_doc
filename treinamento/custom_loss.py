@@ -93,12 +93,11 @@ def masked_cce(y_true, y_pred):
 # %% Custom entropy loss
 
 def custom_entropy_loss(y_true, y_pred, entropy_weight):
-    # Squeezea and Cast entropy as float32
+    # Squeeze and Cast entropy as float32
     entropy_weight = tf.cast(tf.squeeze(entropy_weight, axis=-1), tf.float32)
     
     # Compute the standard cross loss (without reduction)
-    cce_tf = CategoricalCrossentropy(reduction='none')
-    cce_loss = cce_tf(y_true, y_pred)
+    cce_loss = tf.keras.losses.categorical_crossentropy(y_true, y_pred)
     
     # Compute the mask (0 is set to pixels with all 0s in all one-hot classes)
     mask = tf.reduce_sum(y_true, axis=-1)

@@ -172,7 +172,7 @@ def transform_augment_or_maintain(x, y):
     
 # %% Augment the data by applying a random transformation to a patch and its reference
 
-def transform_augment(x_y):
+def transform_augment_xy(x_y):
     x, y = x_y
     
     # Sorteia opção
@@ -269,3 +269,137 @@ def transform_augment_xye(x_y_e):
         y = tf.image.rot90(tf.image.flip_up_down(y), k=3)
         e = tf.image.rot90(tf.image.flip_up_down(e), k=3)
         return x, y, e
+    
+# %% Augment the data by applying a random transformation to a patch, its reference and the entropy (Google IA)
+
+@tf.function
+def transform_augment_or_maintain_tf(items):
+    # vectorized_map passes a single tuple, so unpack it first
+    # This structure must match exactly what you pass in (x, y, e)
+    x, y, e = items
+
+    opcao = tf.random.uniform([], minval=0, maxval=8, dtype=tf.int32)
+    
+    # 1. Flip Vertical (opcao 1, 6 ou 7)
+    cond_flip_v = tf.math.logical_or(tf.equal(opcao, 1), tf.math.greater_equal(opcao, 6))
+    x = tf.where(cond_flip_v, tf.image.flip_up_down(x), x)
+    y = tf.where(cond_flip_v, tf.image.flip_up_down(y), y)
+    e = tf.where(cond_flip_v, tf.image.flip_up_down(e), e)
+    
+    # 2. Flip Horizontal (opcao 2)
+    cond_flip_h = tf.equal(opcao, 2)
+    x = tf.where(cond_flip_h, tf.image.flip_left_right(x), x)
+    y = tf.where(cond_flip_h, tf.image.flip_left_right(y), y)
+    e = tf.where(cond_flip_h, tf.image.flip_left_right(e), e)
+        
+    # 3. Rotações
+    # vectorized_map often hates switch_case. Let's use simple math for k:
+    # k=1 for 3,6; k=2 for 4; k=3 for 5,7
+    k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
+        tf.where(tf.equal(opcao, 4), 2,
+        tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
+    
+    # Note: tf.image.rot90 requires k to be a constant or handled carefully.
+    # If this fails, we can use a sequence of 90-degree rotations.
+    x = tf.image.rot90(x, k=k)
+    y = tf.image.rot90(y, k=k)
+    e = tf.image.rot90(e, k=k)
+        
+    return x, y, e
+    
+
+@tf.function
+def transform_augment_tf_xye(items):
+    # vectorized_map expects a single tuple/list of tensors
+    x, y, e = items
+
+    # 1 to 7: Excludes 0 (which was your 'stay the same' case)
+    opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
+    
+    # 1. Flip Vertical (opcao 1, 6, 7)
+    cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
+    x = tf.where(cond_flip_v, tf.image.flip_up_down(x), x)
+    y = tf.where(cond_flip_v, tf.image.flip_up_down(y), y)
+    e = tf.where(cond_flip_v, tf.image.flip_up_down(e), e)
+    
+    # 2. Flip Horizontal (opcao 2)
+    cond_flip_h = tf.equal(opcao, 2)
+    x = tf.where(cond_flip_h, tf.image.flip_left_right(x), x)
+    y = tf.where(cond_flip_h, tf.image.flip_left_right(y), y)
+    e = tf.where(cond_flip_h, tf.image.flip_left_right(e), e)
+        
+    # 3. Rotações
+    # k=1 (3,6), k=2 (4), k=3 (5,7)
+    k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
+        tf.where(tf.equal(opcao, 4), 2,
+        tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
+    
+    x = tf.image.rot90(x, k=k)
+    y = tf.image.rot90(y, k=k)
+    e = tf.image.rot90(e, k=k)
+        
+    return x, y, e
+
+@tf.function
+def transform_augment_tf_xy(items):
+    # vectorized_map expects a single tuple/list of tensors
+    x, y = items
+
+    # 1 to 7: Excludes 0 (which was your 'stay the same' case)
+    opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
+    
+    # 1. Flip Vertical (opcao 1, 6, 7)
+    cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
+    x = tf.where(cond_flip_v, tf.image.flip_up_down(x), x)
+    y = tf.where(cond_flip_v, tf.image.flip_up_down(y), y)
+    
+    # 2. Flip Horizontal (opcao 2)
+    cond_flip_h = tf.equal(opcao, 2)
+    x = tf.where(cond_flip_h, tf.image.flip_left_right(x), x)
+    y = tf.where(cond_flip_h, tf.image.flip_left_right(y), y)
+        
+    # 3. Rotações
+    # k=1 (3,6), k=2 (4), k=3 (5,7)
+    k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
+        tf.where(tf.equal(opcao, 4), 2,
+        tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
+    
+    x = tf.image.rot90(x, k=k)
+    y = tf.image.rot90(y, k=k)
+        
+    return x, y
+
+
+@tf.function
+def transform_augment_tf(items):
+    x, y, e = items
+    
+    # 1 to 7 ensures no "stay the same" (option 0)
+    opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
+    
+    # Define boolean conditions for readability
+    is_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
+    is_flip_h = tf.equal(opcao, 2)
+    
+    # Calculate k for rotations: 1 (for 3,6), 2 (for 4), 3 (for 5,7)
+    k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
+        tf.where(tf.equal(opcao, 4), 2,
+        tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
+
+    # Apply transformations using tf.where (replaces Python 'if')
+    # Vertical Flip
+    x = tf.where(is_flip_v, tf.image.flip_up_down(x), x)
+    y = tf.where(is_flip_v, tf.image.flip_up_down(y), y)
+    e = tf.where(is_flip_v, tf.image.flip_up_down(e), e)
+
+    # Horizontal Flip
+    x = tf.where(is_flip_h, tf.image.flip_left_right(x), x)
+    y = tf.where(is_flip_h, tf.image.flip_left_right(y), y)
+    e = tf.where(is_flip_h, tf.image.flip_left_right(e), e)
+
+    # Rotation (k=0 acts as identity automatically)
+    x = tf.image.rot90(x, k=k)
+    y = tf.image.rot90(y, k=k)
+    e = tf.image.rot90(e, k=k)
+
+    return x, y, e

@@ -11,13 +11,13 @@ Created on Wed Jul 31 20:18:54 2024
 import time, gc
 import numpy as np
 import tensorflow as tf
-from .utils import transform_augment, transform_augment_xye
+from .utils import transform_augment_xy, transform_augment_xye
 from inspect import signature
 import matplotlib.pyplot as plt
 
 # %% Do a train step
 
-# @tf.function
+@tf.function
 def train_step(x, y, model, loss_fn, optimizer, metrics_train, entropy_weight=None):
     with tf.GradientTape() as tape:
         model_result = model(x, training=True)
@@ -39,10 +39,10 @@ def train_step(x, y, model, loss_fn, optimizer, metrics_train, entropy_weight=No
 # %% Do a validation step
 
 @tf.function
-def test_step(x, y, model, loss_fn, metrics_val, input_tensor=False):
+def test_step(x, y, model, loss_fn, metrics_val, entropy_weight=None):
     val_result = model(x, training=False)
-    if input_tensor:
-        loss_value = loss_fn(y, val_result, input_tensor=x)
+    if entropy_weight is not None:
+        loss_value = loss_fn(y, val_result, entropy_weight=entropy_weight)
     else:
         loss_value = loss_fn(y, val_result)
         
@@ -101,6 +101,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     # Parameters of loss call (more than y_true and y_pred?)
     sig = signature(loss_fn)
     loss_parameters_names = [name for name in sig.parameters.keys() if name not in ('self', 'cls')]
+    print('Loss parameters names: ', loss_parameters_names)
     
     # Loss and metric values are stored in lists
     history_train = [] 
@@ -112,6 +113,12 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     
     # Epochs without improvement
     no_improvement_count = 0
+    
+    # Define if entropy is in data
+    if len(train_dataset.element_spec) == 2:
+        entropy_in_data = False
+    elif len(train_dataset.element_spec) == 3:
+        entropy_in_data = True
     
     # Training loop
     for epoch in range(epochs):
@@ -126,11 +133,10 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         # Loop through dataset batches
         for step, (batches) in enumerate(train_dataset):
             # Set variables according to dataset width (entropy may be passed)
-            if len(train_dataset.element_spec) == 2:
-                x_batch_train, y_batch_train = batches
-            elif len(train_dataset.element_spec) == 3:
+            if entropy_in_data:
                 x_batch_train, y_batch_train, e_batch_train = batches
-                entropy_in_data = True
+            else:
+                x_batch_train, y_batch_train = batches
             
             if data_augmentation:
                 # Compute "new" batches 
@@ -139,17 +145,37 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 e_batches_train_augmented = []
                 if not entropy_in_data:                        
                     for _ in range(augment_batch_factor-1):
-                        x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment, (x_batch_train, y_batch_train))
+                        x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment_xy, (x_batch_train, y_batch_train) )
                         x_batches_train_augmented.append(x_batch_train_augmented)
                         y_batches_train_augmented.append(y_batch_train_augmented)
                 else:
                     for _ in range(augment_batch_factor-1):
-                        x_batch_train_augmented, y_batch_train_augmented, e_batch_train_augmented  = vectorized_map(transform_augment_xye, (x_batch_train, y_batch_train, e_batch_train))
+                        x_batch_train_augmented, y_batch_train_augmented, e_batch_train_augmented = vectorized_map(transform_augment_xye, (x_batch_train, y_batch_train, e_batch_train))
                         x_batches_train_augmented.append(x_batch_train_augmented)
                         y_batches_train_augmented.append(y_batch_train_augmented)
                         e_batches_train_augmented.append(e_batch_train_augmented)                   
                 
+                # For Debug
                 # plt.imshow(tf.cast(x_batch_train_augmented[0][:, :, 3:0:-1], tf.float32)) # Inspect an augmented patch
+                # plt.figure(figsize=(8, 20)) # Increased height for 8 rows
+                
+                # for i in range(8):
+                #     # Original Image (Left Column)
+                #     plt.subplot(8, 2, 2*i + 1) 
+                #     plt.imshow(tf.cast(x_batch_train[i][:, :, 3:0:-1], tf.float32))
+                #     plt.title("Original")
+                #     plt.axis('off')
+                
+                #     # Augmented Image (Right Column)
+                #     plt.subplot(8, 2, 2*i + 2)
+                #     plt.imshow(tf.cast(x_batch_train_augmented[i][:, :, 3:0:-1], tf.float32))
+                #     plt.title("Augmented")
+                #     plt.axis('off')
+                
+                # plt.tight_layout()
+                # plt.show()
+
+                
                 # Concatenate original batch with new "batches"
                 x_batch_train = tf.concat([x_batch_train] + x_batches_train_augmented, axis=0) 
                 y_batch_train = tf.concat([y_batch_train] + y_batches_train_augmented, axis=0)
@@ -175,7 +201,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             # Log every 200 batches
             if step % 200 == 0:
                 print(
-                    "Training loss (for one batch) at step %d: %.4f"
+                    "Training loss (for one batch) at step %d: %.8f"
                     % (step, float(loss_value))
                 )
                 print("Seen so far: %s samples" % ((step + 1) * x_batch_train.shape[0])) # x_batch_train.shape[0] é o batch size final, já com aumento de dados
@@ -190,12 +216,12 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             train_metric.reset_state() # Reset train metric in the end of the epoch
             
         # Compute validation results in the end of the epoch
-        for (batches) in valid_dataset:
+        for v_step, (batches) in enumerate(valid_dataset):
             # Set variables according to dataset width (entropy may be passed)
-            if len(valid_dataset.element_spec) == 2:
-                x_batch_val, y_batch_val = batches
-            elif len(valid_dataset.element_spec) == 3:
+            if entropy_in_data:
                 x_batch_val, y_batch_val, e_batch_val = batches
+            else:
+                x_batch_val, y_batch_val = batches
             
             # Validation step
             if entropy_in_data:
@@ -211,7 +237,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
 
         # Write to validation history the valid loss (mean loss or accumulated loss/number of batches) and the first metric for the epoch
         metrics_val0 = metrics_val[0].result()
-        loss_val = valid_loss/(step+1)
+        loss_val = valid_loss/(v_step+1)
         history_valid.append(   np.array([[loss_val, metrics_val0]])   )   
 
         # Reset accumulated training and validation losses for the next epoch
