@@ -112,7 +112,8 @@ class ModelTrainer:
                         learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
                         early_stopping_on_metric=True,
-                        augment_batch_factor=2, use_lr_decay=True, entropy_dir=None):
+                        augment_batch_factor=2, step_decay=True, 
+                        entropy_dir=None):
         # Lists of metrics must not be empty
         assert len(metrics_train) > 0, "List of metrics on train must have at least one element"
         assert len(metrics_val) > 0, "List of metrics on validation must have at least one element"
@@ -140,7 +141,8 @@ class ModelTrainer:
         # Optimizer and learning rate
         optimizer = self.optimizer
         optimizer.build(model.trainable_variables)
-        if use_lr_decay:
+        # is_valid_params_decay = lambda ps: sum(ps) == 1 or not any(ps)
+        if step_decay:
             steps_per_epoch = self.train_dataset.cardinality().numpy() // batch_size
             drop_rate = 0.1 
             epochs_per_drop = 10

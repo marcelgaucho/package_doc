@@ -14,6 +14,7 @@ import tensorflow as tf
 from .utils import transform_augment_xy, transform_augment_xye
 from inspect import signature
 import matplotlib.pyplot as plt
+from tensorflow.keras import backend as K
 
 # %% Do a train step
 
@@ -123,7 +124,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     # Training loop
     for epoch in range(epochs):
         print(f"\nStart of epoch {epoch}")
-        print(f'Learning rate = {optimizer.learning_rate:.6f}')
+        print(f'Learning rate = {K.get_value(optimizer.learning_rate):.6f}')
         start_time = time.time()
         
         # Initialize accumulated loss in train and validation
