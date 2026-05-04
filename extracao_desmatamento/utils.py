@@ -66,7 +66,7 @@ def minmax_normalize(data, min_value=None, max_value=None):
         max_value = np.max(data, axis=(0, 1, 2))
         
     # 2. Perform the math
-    normalized = (data - min_value) / (max_value - min_value + 1e-7)
+    normalized = (data - min_value) / (max_value - min_value + np.float32(1e-7))
     
-    # 3. Cast to float16 for memory efficiency (Storage)
-    return normalized.astype(np.float16), min_value, max_value
+    # 3. Return normalized and max and min values used in normalization
+    return normalized, min_value, max_value
