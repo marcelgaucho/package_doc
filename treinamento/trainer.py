@@ -111,8 +111,7 @@ class ModelTrainer:
                         metrics_val=[CustomF1Score(), Precision(class_id=1), Recall(class_id=1)],
                         learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
-                        early_stopping_on_metric=True,
-                        augment_batch_factor=2, step_decay=True, 
+                        mode='max', augment_batch_factor=2, step_decay=True, reduce_on_plateau=False,
                         entropy_dir=None):
         # Lists of metrics must not be empty
         assert len(metrics_train) > 0, "List of metrics on train must have at least one element"
@@ -141,8 +140,10 @@ class ModelTrainer:
         # Optimizer and learning rate
         optimizer = self.optimizer
         optimizer.build(model.trainable_variables)
-        # is_valid_params_decay = lambda ps: sum(ps) == 1 or not any(ps)
-        if step_decay:
+        is_valid_bools_decay = lambda ps: ps.count(True) == 1 or not any(ps)
+        if not is_valid_bools_decay:
+            raise ValueError('Only one decay parameter can be True, except if all decay parameters are False')
+        if step_decay: # step decay schedule
             steps_per_epoch = self.train_dataset.cardinality().numpy() // batch_size
             drop_rate = 0.1 
             epochs_per_drop = 10
@@ -165,8 +166,8 @@ class ModelTrainer:
                                   train_dataset=train_dataset, valid_dataset=valid_dataset,
                                   optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
                                   model_path=self.model_path, early_stopping_delta=self.early_stopping_delta,
-                                  data_augmentation=data_augmentation, early_stopping_on_metric=True,                                  
-                                  augment_batch_factor=augment_batch_factor)
+                                  data_augmentation=data_augmentation, reduce_on_plateau=reduce_on_plateau,
+                                  mode=mode, augment_batch_factor=augment_batch_factor)
         
         # Delete datasets to clean object
         del self.train_dataset, self.valid_dataset

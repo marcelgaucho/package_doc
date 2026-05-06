@@ -15,6 +15,7 @@ from .utils import transform_augment_xy, transform_augment_xye
 from inspect import signature
 import matplotlib.pyplot as plt
 from tensorflow.keras import backend as K
+from .lr_decay import ReduceOnPlateau
 
 # %% Do a train step
 
@@ -91,12 +92,12 @@ def scale_tensor_uncertainty(batch_tensor, min_target_scale=0, max_target_scale=
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
                     loss_fn, metrics_train=[], metrics_val=[], model_path='best_model.keras',
-                    early_stopping_delta=0.01, data_augmentation=False, 
-                    early_stopping_on_metric=True, augment_batch_factor=2):
+                    early_stopping_delta=0.01, data_augmentation=False, reduce_on_plateau=True,
+                    mode='max', augment_batch_factor=2):
     '''
     Train the model for a certain number of epochs, with early stopping of early_stopping_epochs,
     saving the model inside model_savedir directory. The early stopping is based on the 
-    first metric of metrics_val list, in case early_stopping_on_metric is True, otherwise the loss
+    first metric of metrics_val list, in case mode is 'max', otherwise the loss
     is used; in both cases the best performance, on metric or loss, is saved.
     '''
     # Parameters of loss call (more than y_true and y_pred?)
@@ -114,6 +115,11 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     
     # Epochs without improvement
     no_improvement_count = 0
+    
+    # Initialize reduce on plateau if set
+    if reduce_on_plateau:
+        schedule = ReduceOnPlateau(optimizer, decay_factor=0.5, patience=5, min_lr=1e-6, 
+                                   min_delta=early_stopping_delta, mode=mode)
     
     # Define if entropy is in data
     if len(train_dataset.element_spec) == 2:
@@ -252,11 +258,17 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             val_metric.reset_state()
         print("Time taken: %.2fs" % (time.time() - start_time))
             
+        # Reduce on plateau
+        if reduce_on_plateau:
+            if mode == 'max':
+                schedule.step(metrics_val0)
+            else:
+                schedule.step(loss_val)
         
         # Early Stopping
         if early_stopping_epochs:
             # Early Stopping on Metric
-            if early_stopping_on_metric:
+            if mode == 'max':
                 # If the absolute value of the increase (or decrease) is below early_stopping_delta,
                 # then proceed to Early Stopping count
                 diff = metrics_val0 - valid_metric_best_model
