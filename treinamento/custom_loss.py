@@ -113,6 +113,30 @@ def custom_entropy_loss(y_true, y_pred, entropy_weight):
     # Return the division
     return tf.reduce_sum(masked_loss) / denominator
 
+# %% Custom offset entropy loss
+
+def custom_offset_entropy_loss(y_true, y_pred, entropy_weight):
+    # Squeeze and Cast entropy as float32
+    entropy_weight = tf.cast(tf.squeeze(entropy_weight, axis=-1), tf.float32)
+    
+    # Compute the standard cross loss (without reduction)
+    cce_loss = tf.keras.losses.categorical_crossentropy(y_true, y_pred)
+    
+    # Compute the mask (0 is set to pixels with all 0s in all one-hot classes)
+    mask = tf.reduce_sum(y_true, axis=-1)
+    mask = tf.cast(mask > 0, dtype=tf.float32)
+    
+    # Multiply by (1+entropy) and mask the loss
+    masked_loss = cce_loss * (1 + entropy_weight)
+    masked_loss = masked_loss * mask
+    
+    # Reduce loss dividing by the total number of non-ignored pixels
+    denominator = tf.reduce_sum(mask) + tf.keras.backend.epsilon()
+    
+    # Return the division
+    return tf.reduce_sum(masked_loss) / denominator
+
+
 # %% Custom addictive entropy loss
 
 def custom_add_entropy_loss(y_true, y_pred, entropy_weight):
