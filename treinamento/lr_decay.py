@@ -58,28 +58,24 @@ class ReduceOnPlateau:
         improved = (current_metric > (self.best_metric + self.min_delta)) if self.mode == 'max' else \
                    (current_metric < (self.best_metric - self.min_delta))
         
-        # Check if the new metric is better than the best seen so far
-        if self.mode == 'max':
-            if current_metric > self.best_metric:
-                improved = True
-        else:
-            if current_metric < self.best_metric:
-                improved = True
-        
         if improved:
             self.best_metric = current_metric
             self.wait = 0
         else:
             self.wait += 1
+            print(f'[LR Scheduler] Patience: {self.wait}/{self.patience}')
             if self.wait >= self.patience:
                 self._reduce_lr()
                 self.wait = 0 # Reset counter to give the new LR time to work
     
     def _reduce_lr(self):
         old_lr = self.optimizer.learning_rate.numpy()
-        new_lr = max(old_lr * self.factor, self.min_lr)
+        new_lr = max(old_lr * self.decay_factor, self.min_lr)
         
         # Update the optimizer's LR
-        self.optimizer.learning_rate.assign(new_lr)
-        print(f"\n[LR Decay] No improvement for {self.patience} epochs. "
-              f"Reducing LR: {old_lr:.6f} -> {new_lr:.6f}")
+        if old_lr > self.min_lr:
+            self.optimizer.learning_rate.assign(new_lr)
+            print(f"\n[LR Decay] No improvement for {self.patience} epochs. Reducing LR: {old_lr:.6f} -> {new_lr:.6f}")
+        else:
+            print(f"\n[LR Decay] Plateau reached, LR is already at min_lr ({self.min_lr:.6e})")
+        

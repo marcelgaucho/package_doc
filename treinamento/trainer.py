@@ -111,7 +111,7 @@ class ModelTrainer:
                         metrics_val=[CustomF1Score(), Precision(class_id=1), Recall(class_id=1)],
                         learning_rate=0.001, loss_fn=CategoricalCrossentropy(from_logits=False),
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
-                        mode='max', augment_batch_factor=2, step_decay=True, reduce_on_plateau=False,
+                        mode='max', augment_batch_factor=2, step_decay=False, reduce_on_plateau=True,
                         entropy_dir=None):
         # Lists of metrics must not be empty
         assert len(metrics_train) > 0, "List of metrics on train must have at least one element"
@@ -141,7 +141,7 @@ class ModelTrainer:
         optimizer = self.optimizer
         optimizer.build(model.trainable_variables)
         is_valid_bools_decay = lambda ps: ps.count(True) == 1 or not any(ps)
-        if not is_valid_bools_decay:
+        if not is_valid_bools_decay([step_decay, reduce_on_plateau]):
             raise ValueError('Only one decay parameter can be True, except if all decay parameters are False')
         if step_decay: # step decay schedule
             steps_per_epoch = self.train_dataset.cardinality().numpy() // batch_size
