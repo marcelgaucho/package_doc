@@ -70,3 +70,20 @@ def minmax_normalize(data, min_value=None, max_value=None):
     
     # 3. Return normalized and max and min values used in normalization
     return normalized, min_value, max_value
+
+# %%
+
+def export_to_geotiff(array, base_geotiff, out_path):
+    ''' Export to geotiff an array (H, W, C) '''
+    # Get geoinfo of base
+    ds_base = gdal.Open(base_geotiff)
+    gt_base = ds_base.GetGeoTransform()
+    proj_base = ds_base.GetProjection()
+    
+    # Array dimensions
+    x_pixels = array.shape[1]
+    y_pixels = array.shape[0]
+    
+    
+    
+    
