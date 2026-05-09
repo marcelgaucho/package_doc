@@ -12,6 +12,7 @@ Created on Fri Jul 25 11:25:09 2025
 from osgeo import gdal
 from package_doc.entropy.uncertain import UncertaintyCalculator, DataGroups
 from package_doc.entropy.dir_uncertain import UncertaintyMetric, XDirUncertain 
+from package_doc.entropy.utils import plot_uncertainty_histogram
 from package_doc.avaliacao.mosaics import MosaicGenerator
 from package_doc.avaliacao.utils import stack_uneven
 
@@ -67,6 +68,7 @@ data_group = DataGroups.Test
 model_name = 'resunet'
 
 metric_uncertainty = UncertaintyMetric.Entropy
+generate_plot = True
 
 prefix = f'mosaic_{metric_uncertainty.value}_'
 export_mosaics = True
@@ -95,21 +97,29 @@ if metric_uncertainty == UncertaintyMetric.Entropy:
                                perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.Entropy.value}_{data_group.value}.npy', entropy)
     uncertainty_array = entropy
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Entropy Distribution', log_scale=True,    
+                                                 save_path=folder_uncertainty /  'entropy_plot.png')
 elif metric_uncertainty == UncertaintyMetric.Surprise:
     surprise = uncertainty_calc.surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                  perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.Surprise.value}_{data_group.value}.npy', surprise)
     uncertainty_array = surprise
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Surprise Distribution', log_scale=True,    
+                                                 save_path=folder_uncertainty /  'entropy_plot.png')
 elif metric_uncertainty == UncertaintyMetric.WeightedSurprise:
     weighted_surprise = uncertainty_calc.weighted_surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                                    perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.WeightedSurprise.value}_{data_group.value}.npy', weighted_surprise)
     uncertainty_array = weighted_surprise
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Weighted Surprise Distribution', log_scale=True,    
+                                                 save_path=folder_uncertainty /  'entropy_plot.png')
 elif metric_uncertainty == UncertaintyMetric.ProbMean:
     prob_mean = uncertainty_calc.prob_mean(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                    perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.ProbMean.value}_{data_group.value}.npy', prob_mean)
     uncertainty_array = prob_mean
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Mean Probability Distribution', log_scale=True,    
+                                                 save_path=folder_uncertainty /  'entropy_plot.png')
 
 # %% Load reference mosaics and check if exists ignored index
 
