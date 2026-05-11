@@ -55,13 +55,14 @@ else:
 batch_size = 16
 model_type = 'resunet'
 early_stopping_epochs = 2
+reduce_on_plateau = True
 
 # %% Input and output directories
 
 x_dir = r'experimentos_deforestation/x_dir/'
 y_dir = r'experimentos_deforestation/y_dir/'
-output_dir = fr'experimentos_deforestation/out_resunet/out_{model_type}/t_0/'
-entropy_dir = r'experimentos_deforestation/out_resunet/uncertainty/'
+output_dir = r'experimentos_deforestation/out_resunet/m_0/'
+entropy_dir = None # Include uncertainty dir if it's second net
 
 # %%
 
@@ -85,7 +86,7 @@ from package_doc.treinamento.trainer import ModelTrainer
 from package_doc.treinamento.metrics import CustomF1Score, RelaxedF1Score, MaskedPrecision, MaskedRecall, MaskedF1Score
 from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
-from package_doc.treinamento.custom_loss import CustomEntropyLoss, masked_weighted_cce, custom_entropy_loss
+from package_doc.treinamento.custom_loss import CustomEntropyLoss, masked_weighted_cce, custom_entropy_loss, masked_cce
 
 
 # %% Build categorical cross-entropy
@@ -114,9 +115,10 @@ result = model_trainer.train_with_loop(epochs=2000, early_stopping_epochs=early_
                                        metrics_train=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
                                        metrics_val=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
                                        learning_rate=0.0001, 
-                                       loss_fn=custom_entropy_loss,
+                                       loss_fn=masked_cce,
                                        buffer_shuffle=None, batch_size=batch_size,
                                        data_augmentation=True, augment_batch_factor=2,
+                                       reduce_on_plateau=reduce_on_plateau,
                                        entropy_dir=entropy_dir)
 del model_trainer
 

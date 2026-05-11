@@ -16,7 +16,9 @@ from package_doc.extracao.patch_extraction import PatchExtractor
 from package_doc.extracao_desmatamento.filtering import IndexesFinder
 from package_doc.extracao_desmatamento.utils import (load_geo_file, 
                                                      preprocess_reference_t2,
-                                                     minmax_normalize)
+                                                     preprocess_reference_t2_nobuffer,
+                                                     minmax_normalize,
+                                                     export_to_geotiff)
 
 from skimage.morphology import disk, dilation, erosion
 
@@ -63,7 +65,8 @@ class PatchProcessor:
         self.global_max_train = np.max(maxs, axis=0)
         print(f"Global Stats - Min: {self.global_min_train}, Max: {self.global_max_train}")
         
-    def process_split(self, split_name='train', nodata_value=0):
+    def process_split(self, split_name='train', nodata_value=0,
+                      preprocessed_path=None):
         """Pass 2: Preprocess, extract patches, normalize and filter."""
         # First calculate global min and max in training set
         if self.global_min_train is None:
@@ -103,7 +106,14 @@ class PatchProcessor:
             
             # 1. Preprocess Y: Early Fusion logic
             # Combine labels (T1 info injected into T2)
-            y_combined = preprocess_reference_t2(yt1, yt2, dil_px=2, ero_px=0)
+            y_combined = preprocess_reference_t2_nobuffer(yt1, yt2)
+            if preprocessed_path:
+                base_preprocessed = Path(preprocessed_path)
+                split_prep = base_preprocessed / split_name
+                split_prep.mkdir(parents=True, exist_ok=True)
+                export_to_geotiff(array=y_combined, 
+                                  base_geotiff=str(lbl_t2_dir / fname), 
+                                  out_path=str(split_prep / fname))                               
     
             # 2. Concatenate X: Early Fusion (Stacking T1 and T2 channels)
             x_combined = np.concatenate([xt1, xt2], axis=-1)
@@ -158,25 +168,27 @@ class PatchProcessor:
 
 # %%
 
-patch_size = 64
-overlap = 0.9
-test_tileinfo_path = 'testes2/info_tiles_test.json'
-test_coords_path = 'testes2/coords_test.npz'
-
-# --- Example Workflow ---
-root = "./deforestation_dataset/PA"
-patch_processor = PatchProcessor(root, patch_size, overlap)
-
-# Process train
-x_train, y_train = patch_processor.process_split("train")
-
-# Process valid
-x_val, y_val = patch_processor.process_split("valid")
-
-# Process test and export info and coords
-patch_processor.overlap = 0.75
-x_test, y_test = patch_processor.process_split("test")
-patch_processor.export_info(test_tileinfo_path, 'test', test_coords_path)
+# =============================================================================
+# patch_size = 64
+# overlap = 0.9
+# test_tileinfo_path = 'testes2/info_tiles_test.json'
+# test_coords_path = 'testes2/coords_test.npz'
+# 
+# # --- Example Workflow ---
+# root = "./deforestation_dataset/PA"
+# patch_processor = PatchProcessor(root, patch_size, overlap)
+# 
+# # Process train
+# x_train, y_train = patch_processor.process_split("train")
+# 
+# # Process valid
+# x_val, y_val = patch_processor.process_split("valid")
+# 
+# # Process test and export info and coords
+# patch_processor.overlap = 0.75
+# x_test, y_test = patch_processor.process_split("test")
+# patch_processor.export_info(test_tileinfo_path, 'test', test_coords_path)
+# =============================================================================
 
 
 

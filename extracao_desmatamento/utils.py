@@ -7,9 +7,12 @@ Created on Mon Apr 27 11:15:35 2026
 
 # %% Import Libraries
 
-from osgeo import gdal
+from osgeo import gdal, gdal_array
 import numpy as np
+import shutil
 from skimage.morphology import disk, dilation, erosion
+import tensorflow as tf
+from pathlib import Path
 
 # %%
 
@@ -55,6 +58,17 @@ def preprocess_reference_t2(y_t1, y_t2,
     
 # %%
 
+def preprocess_reference_t2_nobuffer(y_t1, y_t2):
+        """Handle the 'ignore' (255) logic for T2 without buffers."""
+        # Mark as 255 (ignore value) in T2:
+        # the area already deforested (where T1 exists)
+        new_t2 = y_t2.copy()
+        new_t2[y_t1 == 1] = 255
+        
+        return new_t2
+    
+# %%
+
 def minmax_normalize(data, min_value=None, max_value=None):
     """Min-max normalization to [0, 1] for concatenated patches. 
        Use input min and max values if passed."""
@@ -75,14 +89,77 @@ def minmax_normalize(data, min_value=None, max_value=None):
 
 def export_to_geotiff(array, base_geotiff, out_path):
     ''' Export to geotiff an array (H, W, C) '''
-    # Get geoinfo of base
+    # Open base geotiff
     ds_base = gdal.Open(base_geotiff)
-    gt_base = ds_base.GetGeoTransform()
-    proj_base = ds_base.GetProjection()
+    if ds_base is None:
+        raise FileNotFoundError(f"Could not open {base_geotiff}")
     
     # Array dimensions
-    x_pixels = array.shape[1]
-    y_pixels = array.shape[0]
+    y_pixels, x_pixels, nbands = array.shape
+    
+    # Map numpy dtype to GDAL type 
+    code_type = gdal_array.NumericTypeCodeToGDALTypeCode(array.dtype)
+    
+    # Create output dataset
+    driver = gdal.GetDriverByName('GTiff')
+    out_ds = driver.Create(out_path, xsize=x_pixels, ysize=y_pixels,
+                           bands=nbands, eType=code_type)
+    
+    # Write arrays
+    for b in range(nbands):
+        out_ds.GetRasterBand(b+1).WriteArray(array[..., b])
+        
+    # Sync Georeferencing
+    out_ds.SetProjection(ds_base.GetProjection())
+    out_ds.SetGeoTransform(ds_base.GetGeoTransform())
+    
+    # Write on disk and close files
+    out_ds.FlushCache()
+    out_ds = None 
+    ds_base = None
+    
+# %%
+
+def onehot(array, num_classes=2, ignore_index=255):
+    ''' One-hot encoding of array (B, H, W, C), setting ignored index to all 0s '''
+    array = array.squeeze(axis=3) # Squeeze patches in channel dimension
+    
+    # If ignore_index is set, first change ignore_index to the last value and 
+    # increment the number of classes
+    if ignore_index is not None:
+        mask = (array == ignore_index)
+        array = array.copy()
+        array[mask] = num_classes
+        num_classes = num_classes + 1            
+        
+    array = np.eye(num_classes, dtype=np.uint8)[array] # One-Hot codification
+    
+    # Consider classes only up to the ignore index
+    if ignore_index is not None:
+        array = array[..., :num_classes-1]
+    
+    return array
+
+# %%
+
+def save_dataset(dataset_path, x_patches, y_patches):
+    ''' Save x and y patches to dataset '''
+    # Ensure dataset_path is a Path object
+    dataset_path = Path(dataset_path)
+    
+    # Clean and recreate the directory
+    if dataset_path.exists():
+        shutil.rmtree(dataset_path)
+
+    dataset_path.mkdir(exist_ok=True)
+    
+    # Create and save dataset
+    dataset =  tf.data.Dataset.from_tensor_slices((x_patches, y_patches))
+    dataset.save(str(dataset_path)) 
+    
+    
+    
+
     
     
     
