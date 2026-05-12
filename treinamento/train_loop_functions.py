@@ -11,7 +11,7 @@ Created on Wed Jul 31 20:18:54 2024
 import time, gc
 import numpy as np
 import tensorflow as tf
-from .utils import transform_augment_xy, transform_augment_xye
+from .utils import transform_augment_tf_xy, transform_augment_tf_xye
 from inspect import signature
 import matplotlib.pyplot as plt
 from tensorflow.keras import backend as K
@@ -152,12 +152,12 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 e_batches_train_augmented = []
                 if not entropy_in_data:                        
                     for _ in range(augment_batch_factor-1):
-                        x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment_xy, (x_batch_train, y_batch_train) )
+                        x_batch_train_augmented, y_batch_train_augmented = vectorized_map(transform_augment_tf_xy, (x_batch_train, y_batch_train) )
                         x_batches_train_augmented.append(x_batch_train_augmented)
                         y_batches_train_augmented.append(y_batch_train_augmented)
                 else:
                     for _ in range(augment_batch_factor-1):
-                        x_batch_train_augmented, y_batch_train_augmented, e_batch_train_augmented = vectorized_map(transform_augment_xye, (x_batch_train, y_batch_train, e_batch_train))
+                        x_batch_train_augmented, y_batch_train_augmented, e_batch_train_augmented = vectorized_map(transform_augment_tf_xye, (x_batch_train, y_batch_train, e_batch_train))
                         x_batches_train_augmented.append(x_batch_train_augmented)
                         y_batches_train_augmented.append(y_batch_train_augmented)
                         e_batches_train_augmented.append(e_batch_train_augmented)                   
@@ -262,7 +262,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         if reduce_on_plateau:
             if mode == 'max':
                 schedule.step(metrics_val0)
-            else:
+            else: # mode == 'min'
                 schedule.step(loss_val)
         
         # Early Stopping

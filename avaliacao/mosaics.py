@@ -21,12 +21,13 @@ class MosaicGenerator:
     def __init__(self, test_array, info_tiles, tiles_dir, output_dir):
         self.test_array = test_array
         
-        self.len_tiles = info_tiles['len_tiles']
-        self.shape_tiles = info_tiles['shape_tiles']
-        self.patch_sizes = info_tiles['patch_sizes']
+        self.len_tiles = [tile_i['len_patches'] for tile_i in info_tiles['tile_info']]
+        self.shape_tiles = [tile_i['shape'] for tile_i in info_tiles['tile_info']]
+        self.patch_size = info_tiles['patch_size']
         self.overlap = info_tiles['overlap']
         
-        self.coords = np.load(info_tiles['coords_path'])['coords']
+        with np.load(info_tiles['coords_path']) as data_c:
+            self.coords = np.array([data_c[tile_path] for tile_path in data_c.keys()])
         
         self.tiles_dir = Path(tiles_dir)
         
@@ -57,8 +58,8 @@ class MosaicGenerator:
                                             :, :, :]
             
             merger = MidpointPatchMerger(target_shape=self.shape_tiles[i_mosaic], 
-                                         patch_size=self.patch_sizes[i_mosaic], 
-                                         overlap_percent=self.overlap[i_mosaic])
+                                         patch_size=self.patch_size, 
+                                         overlap_percent=self.overlap)
             
             mosaic = merger(patches=patches_mosaic, coords=self.coords[i_mosaic],
                             dtype=dtype)

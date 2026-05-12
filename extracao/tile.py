@@ -164,7 +164,7 @@ class YTile(Tile):
     
     def preprocess_reference(self, ytile_t1: 'YTile', dilation_px=2, 
                              erosion_px=0):
-        ''' This object has reference T1, while the reference T2 is passed in a parameter  '''
+        ''' This object has reference T2, while the reference T1 is passed in a parameter  '''
         # Structuring element
         disk_dil = disk(dilation_px)
         disk_ero = disk(erosion_px)
@@ -190,6 +190,13 @@ class YTile(Tile):
         # Now mask, in ref T2, the object pixels from ref T1
         new_ref_t2[dilated_ref_t1 == 1] = 255
         self.array = new_ref_t2
+        
+        return self.array
+    
+    def preprocess_reference_nobuffer(self, ytile_t1: 'YTile'):
+        ''' This object has reference T2, while the reference T1 is passed in a parameter  '''
+        # Mask, in ref T2, the object pixels from ref T1
+        self.array[ytile_t1.array == 1] = 255
         
         return self.array
     

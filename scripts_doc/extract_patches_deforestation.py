@@ -50,7 +50,7 @@ save_dataset(x_dir / 'valid_dataset', x_valid, onehot(y_valid))
 
 # Process test and export info and coords
 patch_processor.overlap = overlap_test
-x_test, y_test = patch_processor.process_split("test", preprocessed_path='t2tiles_prep/')
+x_test, y_test = patch_processor.process_split("test", preprocessed_path='tiles_t2_preprocessed/')
 np.save(x_dir / 'x_test.npy', x_test)
 np.save(y_dir / 'y_test.npy', y_test)
 patch_processor.export_info(test_tileinfo_path, "test", str(test_coords_path))
