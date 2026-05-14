@@ -123,7 +123,20 @@ def show_training_plot(history, metric_name='accuracy', save=False, save_path=r'
     else:
         plt.show(block=False)
         
-# %% Augment or maintain the data by applying a random transformation to a patch and its reference
+# %% Options for operations
+
+# =============================================================================
+# 0. Mantém original (maintain)                                                # x
+# 1. Espelhamento Vertical (Flip)                                              # tf.image.flip_up_down(x) 
+# 2. Espelhamento Horizontal (Mirror)                                          # tf.image.flip_left_right(x)
+# 3. Rotação 90 graus (90 degrees rotation)                                    # tf.image.rot90(x, k=1)
+# 4. Rotação 180 graus (180 degrees rotation)                                  # tf.image.rot90(x, k=2)
+# 5. Rotação 270 graus (270 degrees rotation)                                  # tf.image.rot90(x, k=3)
+# 6. Espelhamento Vertical e Rotação 90 graus (Flip and 90 degrees rotation)   # tf.image.rot90(tf.image.flip_up_down(x), k=1)
+# 7. Espelhamento Vertical e Rotação 270 graus (Flip and 270 degrees rotation) # tf.image.rot90(tf.image.flip_up_down(x), k=3)
+# =============================================================================
+        
+# %% Reference Function to the next optimized ones - Augment or maintain the data by applying a random transformation to a patch and its reference
 
 def transform_augment_or_maintain(x, y):
     # Draw option
@@ -170,143 +183,7 @@ def transform_augment_or_maintain(x, y):
         y = tf.image.rot90(tf.image.flip_up_down(y), k=3)
         return x, y
     
-# %% Augment the data by applying a random transformation to a patch and its reference
-
-def transform_augment_xy(x_y):
-    x, y = x_y
-    
-    # Sorteia opção
-    lista_opcoes = [1, 2, 3, 4, 5, 6, 7]
-    opcao = random.choice(lista_opcoes)
-    
-    # Decide opção
-    # Espelhamento Vertical (Flip)
-    if opcao == 1:
-        x = tf.image.flip_up_down(x)
-        y = tf.image.flip_up_down(y)
-        return x, y
-    # Espelhamento Horizontal (Mirror)
-    elif opcao == 2:
-        x = tf.image.flip_left_right(x)
-        y = tf.image.flip_left_right(y)
-        return x, y
-    # Rotação 90 graus
-    elif opcao == 3:
-        x = tf.image.rot90(x, k=1)
-        y = tf.image.rot90(y, k=1)
-        return x, y
-    # Rotação 180 graus
-    elif opcao == 4:
-        x = tf.image.rot90(x, k=2)
-        y = tf.image.rot90(y, k=2)
-        return x, y
-    # Rotação 270 graus
-    elif opcao == 5:
-        x = tf.image.rot90(x, k=3)
-        y = tf.image.rot90(y, k=3)
-        return x, y
-    # Espelhamento Vertical e Rotação 90 graus
-    elif opcao == 6:
-        x = tf.image.rot90(tf.image.flip_up_down(x), k=1)
-        y = tf.image.rot90(tf.image.flip_up_down(y), k=1)
-        return x, y
-    # Espelhamento Vertical e Rotação 270 graus
-    elif opcao == 7:
-        x = tf.image.rot90(tf.image.flip_up_down(x), k=3)
-        y = tf.image.rot90(tf.image.flip_up_down(y), k=3)
-        return (x, y)
-
-
-# %% Augment the data by applying a random transformation to a patch, its reference and the entropy
-
-def transform_augment_xye(x_y_e):
-    x, y, e = x_y_e
-    
-    # Sorteia opção
-    lista_opcoes = [1, 2, 3, 4, 5, 6, 7]
-    opcao = random.choice(lista_opcoes)
-    
-    # Decide opção
-    # Espelhamento Vertical (Flip)
-    if opcao == 1:
-        x = tf.image.flip_up_down(x)
-        y = tf.image.flip_up_down(y)
-        e = tf.image.flip_up_down(e)
-        return x, y, e
-    # Espelhamento Horizontal (Mirror)
-    elif opcao == 2:
-        x = tf.image.flip_left_right(x)
-        y = tf.image.flip_left_right(y)
-        e = tf.image.flip_left_right(e)
-        return x, y, e
-    # Rotação 90 graus
-    elif opcao == 3:
-        x = tf.image.rot90(x, k=1)
-        y = tf.image.rot90(y, k=1)
-        e = tf.image.rot90(e, k=1)
-        return x, y, e
-    # Rotação 180 graus
-    elif opcao == 4:
-        x = tf.image.rot90(x, k=2)
-        y = tf.image.rot90(y, k=2)
-        e = tf.image.rot90(e, k=2)
-        return x, y, e
-    # Rotação 270 graus
-    elif opcao == 5:
-        x = tf.image.rot90(x, k=3)
-        y = tf.image.rot90(y, k=3)
-        e = tf.image.rot90(e, k=3)
-        return x, y, e
-    # Espelhamento Vertical e Rotação 90 graus
-    elif opcao == 6:
-        x = tf.image.rot90(tf.image.flip_up_down(x), k=1)
-        y = tf.image.rot90(tf.image.flip_up_down(y), k=1)
-        e = tf.image.rot90(tf.image.flip_up_down(e), k=1)
-        return x, y, e
-    # Espelhamento Vertical e Rotação 270 graus
-    elif opcao == 7:
-        x = tf.image.rot90(tf.image.flip_up_down(x), k=3)
-        y = tf.image.rot90(tf.image.flip_up_down(y), k=3)
-        e = tf.image.rot90(tf.image.flip_up_down(e), k=3)
-        return x, y, e
-    
 # %% Augment the data by applying a random transformation to a patch, its reference and the entropy (Google IA)
-
-@tf.function
-def transform_augment_or_maintain_tf(items):
-    # vectorized_map passes a single tuple, so unpack it first
-    # This structure must match exactly what you pass in (x, y, e)
-    x, y, e = items
-
-    opcao = tf.random.uniform([], minval=0, maxval=8, dtype=tf.int32)
-    
-    # 1. Flip Vertical (opcao 1, 6 ou 7)
-    cond_flip_v = tf.math.logical_or(tf.equal(opcao, 1), tf.math.greater_equal(opcao, 6))
-    x = tf.where(cond_flip_v, tf.image.flip_up_down(x), x)
-    y = tf.where(cond_flip_v, tf.image.flip_up_down(y), y)
-    e = tf.where(cond_flip_v, tf.image.flip_up_down(e), e)
-    
-    # 2. Flip Horizontal (opcao 2)
-    cond_flip_h = tf.equal(opcao, 2)
-    x = tf.where(cond_flip_h, tf.image.flip_left_right(x), x)
-    y = tf.where(cond_flip_h, tf.image.flip_left_right(y), y)
-    e = tf.where(cond_flip_h, tf.image.flip_left_right(e), e)
-        
-    # 3. Rotações
-    # vectorized_map often hates switch_case. Let's use simple math for k:
-    # k=1 for 3,6; k=2 for 4; k=3 for 5,7
-    k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
-        tf.where(tf.equal(opcao, 4), 2,
-        tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
-    
-    # Note: tf.image.rot90 requires k to be a constant or handled carefully.
-    # If this fails, we can use a sequence of 90-degree rotations.
-    x = tf.image.rot90(x, k=k)
-    y = tf.image.rot90(y, k=k)
-    e = tf.image.rot90(e, k=k)
-        
-    return x, y, e
-    
 
 @tf.function
 def transform_augment_tf_xye(items):
@@ -370,36 +247,98 @@ def transform_augment_tf_xy(items):
     return x, y
 
 
+
+# %% 
+
 @tf.function
 def transform_augment_tf(items):
+    # vectorized_map expects a single tuple/list of tensors
     x, y, e = items
     
-    # 1 to 7 ensures no "stay the same" (option 0)
+    # Options 1 to 7
     opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
     
-    # Define boolean conditions for readability
+    # 1. Flip Vertical (opcao 1, 6, 7) or Flip Horizontal (opcao 2)
     is_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
     is_flip_h = tf.equal(opcao, 2)
     
-    # Calculate k for rotations: 1 (for 3,6), 2 (for 4), 3 (for 5,7)
-    k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
-        tf.where(tf.equal(opcao, 4), 2,
-        tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
+    # 2. Look-up table for rotations
+    mapa_k = tf.constant([ 0,  0,  0,  1,  2,  3,  1,  3], dtype=tf.int32)
+    k = tf.gather(mapa_k, opcao)
 
-    # Apply transformations using tf.where (replaces Python 'if')
-    # Vertical Flip
+    # 3. Flips using tf.where (required for vectorized_map)
     x = tf.where(is_flip_v, tf.image.flip_up_down(x), x)
     y = tf.where(is_flip_v, tf.image.flip_up_down(y), y)
     e = tf.where(is_flip_v, tf.image.flip_up_down(e), e)
 
-    # Horizontal Flip
     x = tf.where(is_flip_h, tf.image.flip_left_right(x), x)
     y = tf.where(is_flip_h, tf.image.flip_left_right(y), y)
     e = tf.where(is_flip_h, tf.image.flip_left_right(e), e)
 
-    # Rotation (k=0 acts as identity automatically)
+    # 4. Rotação vetorizada
     x = tf.image.rot90(x, k=k)
     y = tf.image.rot90(y, k=k)
     e = tf.image.rot90(e, k=k)
 
     return x, y, e
+
+
+# %% Correction by Google IA
+
+@tf.function
+def transform_augment_batch(items):
+    """
+    Applies unique D4 transformations to each item in a tuple (x, y, and optionally e).
+    Uses vectorized_map for batch-level efficiency.
+    """
+    def _apply_single_sample(tensors):
+        # 1 a 7 aleatório para cada amostra do lote
+        opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
+        
+        # Condições booleanas para os flips
+        cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
+        cond_flip_h = tf.equal(opcao, 2)
+        
+        # Correção e Otimização: Tabela de busca direta substituindo os tf.where aninhados
+        # Índices mapeados:          0  1  2  3  4  5  6  7
+        mapa_k = tf.constant([ 0,  0,  0,  1,  2,  3,  1,  3], dtype=tf.int32)
+        k = tf.gather(mapa_k, opcao)
+
+        def transform(t):
+            # tf.where puramente matemático obrigatório para o vectorized_map
+            t = tf.where(cond_flip_v, tf.image.flip_up_down(t), t)
+            t = tf.where(cond_flip_h, tf.image.flip_left_right(t), t)
+            return tf.image.rot90(t, k=k)
+
+        return tf.nest.map_structure(transform, tensors)
+
+    return tf.vectorized_map(_apply_single_sample, items)
+
+# %% Made by Gemini
+
+
+@tf.function
+def transform_augment_batch(items):
+    """
+    Applies unique D4 transformations to each item in a tuple (x, y, and optionally e).
+    Uses vectorized_map for batch-level efficiency.
+    """
+    def _apply_single_sample(tensors):
+        # Generate a unique seed for this specific sample in the batch
+        opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
+        
+        cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
+        cond_flip_h = tf.equal(opcao, 2)
+        
+        k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
+            tf.where(tf.equal(opcao, 4), 2,
+            tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
+
+        def transform(t):
+            t = tf.where(cond_flip_v, tf.image.flip_up_down(t), t)
+            t = tf.where(cond_flip_h, tf.image.flip_left_right(t), t)
+            return tf.image.rot90(t, k=k)
+
+        return tf.nest.map_structure(transform, tensors)
+
+    return tf.vectorized_map(_apply_single_sample, items)

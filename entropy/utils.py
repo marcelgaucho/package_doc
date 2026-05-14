@@ -61,7 +61,7 @@ def plot_uncertainty_histogram(data, title="Entropy Distribution", log_scale=Tru
     nbins = 50
     
     # Create weights for Percentages (for Normalized Frequency)
-    weights = (np.ones_like(flat_data) / len(flat_data)) * 100
+    weights = (np.ones_like(flat_data, dtype=np.float32) / len(flat_data)) * 100
     
     n, bins, patches = plt.hist(flat_data, bins=nbins, range=(0, 1), 
                                 color='royalblue', edgecolor='white', 

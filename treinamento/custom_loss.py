@@ -116,6 +116,7 @@ def custom_entropy_loss(y_true, y_pred, entropy_weight):
 # %% Custom offset entropy loss
 
 def custom_offset_entropy_loss(y_true, y_pred, entropy_weight):
+    ''' Masked loss with L = CE * (1 + Entropy) ''' 
     # Squeeze and Cast entropy as float32
     entropy_weight = tf.cast(tf.squeeze(entropy_weight, axis=-1), tf.float32)
     
@@ -140,6 +141,7 @@ def custom_offset_entropy_loss(y_true, y_pred, entropy_weight):
 # %% Custom addictive entropy loss
 
 def custom_add_entropy_loss(y_true, y_pred, entropy_weight):
+    ''' Masked loss with L = CE + Entropy ''' 
     # Squeeze and Cast entropy as float32
     entropy_weight = tf.cast(tf.squeeze(entropy_weight, axis=-1), tf.float32)
     
