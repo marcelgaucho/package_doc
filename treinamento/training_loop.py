@@ -13,7 +13,9 @@ import tensorflow as tf
 from .lr_decay import ReduceOnPlateau
 from .steps import train_step, test_step
 from .utils import transform_augment_batch, show_imgs_augmented
+from .early_stopping import EarlyStopping
 import time
+
 
 
 # %%
@@ -25,13 +27,14 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     
     # 1. Setup Tracking
     history_train, history_valid = [], []
-    best_val_score = -float('inf') if mode == 'max' else float('inf')
-    no_improvement_count = 0
     
     # Use Keras metrics for mean loss to handle varying batch sizes automatically
     train_loss_tracker = tf.keras.metrics.Mean(name="train_loss")
     val_loss_tracker = tf.keras.metrics.Mean(name="val_loss")
-
+    
+    # Instantiate Early Stopping and Reduce on Plateau classes
+    early_stopper = EarlyStopping(patience=early_stopping_epochs, min_delta=early_stopping_delta, mode=mode)
+    
     if reduce_on_plateau:
         schedule = ReduceOnPlateau(optimizer, decay_factor=0.5, patience=5, min_lr=1e-6, 
                                    min_delta=early_stopping_delta, mode=mode)
@@ -100,23 +103,9 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         if reduce_on_plateau:
             schedule.step(monitor_value)
 
-        # Improvement Logic
-        if mode == 'max':
-            improved = monitor_value > (best_val_score + early_stopping_delta)
-        else:
-            improved = monitor_value < (best_val_score - early_stopping_delta)
-
-        if improved:
-            best_val_score = monitor_value
-            no_improvement_count = 0
-            model.save(model_path)
-            print("✓ Improvement found. Model saved.")
-        else:
-            no_improvement_count += 1
-            print(f"× No improvement. Patience: {no_improvement_count}/{early_stopping_epochs}")
-            if early_stopping_epochs and no_improvement_count >= early_stopping_epochs:
-                print("!!! Early Stopping Triggered !!!")
-                break
+        # Improvement Logic with Early Stopping
+        if early_stopper.step(monitor_value, model, model_path):
+            break
 
         val_loss_tracker.reset_state()
         for m in metrics_val: m.reset_state()
