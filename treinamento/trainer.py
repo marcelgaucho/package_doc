@@ -33,7 +33,8 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 
 # Import from other modules inside package
 from .metrics import CustomF1Score
-from .train_loop_functions import train_model_loop
+# from .train_loop_functions import train_model_loop
+from .training_loop import train_model_loop
 from .utils import onehot_numpy, show_training_plot, transform_augment_or_maintain  
 from .lr_decay import StepDecay
 

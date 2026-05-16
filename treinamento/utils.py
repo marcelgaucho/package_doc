@@ -123,6 +123,29 @@ def show_training_plot(history, metric_name='accuracy', save=False, save_path=r'
     else:
         plt.show(block=False)
         
+# %% Function to show images and augmented versions of batch
+
+def show_imgs_augmented(img_batch, aug_batch):
+    plt.figure(figsize=(8, 20)) # Increased height for 8 rows
+    
+    for i in range(8):
+        # Original Image (Left Column)
+        plt.subplot(8, 2, 2*i + 1) 
+        plt.imshow(tf.cast(img_batch[i][:, :, 10:7:-1], tf.float32))
+        plt.title("Original")
+        plt.axis('off')
+    
+        # Augmented Image (Right Column)
+        plt.subplot(8, 2, 2*i + 2)
+        plt.imshow(tf.cast(aug_batch[i][:, :, 10:7:-1], tf.float32))
+        plt.title("Augmented")
+        plt.axis('off')
+    
+    plt.tight_layout()
+    plt.show()
+        
+    
+        
 # %% Options for operations
 
 # =============================================================================
@@ -246,43 +269,6 @@ def transform_augment_tf_xy(items):
         
     return x, y
 
-
-
-# %% 
-
-@tf.function
-def transform_augment_tf(items):
-    # vectorized_map expects a single tuple/list of tensors
-    x, y, e = items
-    
-    # Options 1 to 7
-    opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
-    
-    # 1. Flip Vertical (opcao 1, 6, 7) or Flip Horizontal (opcao 2)
-    is_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
-    is_flip_h = tf.equal(opcao, 2)
-    
-    # 2. Look-up table for rotations
-    mapa_k = tf.constant([ 0,  0,  0,  1,  2,  3,  1,  3], dtype=tf.int32)
-    k = tf.gather(mapa_k, opcao)
-
-    # 3. Flips using tf.where (required for vectorized_map)
-    x = tf.where(is_flip_v, tf.image.flip_up_down(x), x)
-    y = tf.where(is_flip_v, tf.image.flip_up_down(y), y)
-    e = tf.where(is_flip_v, tf.image.flip_up_down(e), e)
-
-    x = tf.where(is_flip_h, tf.image.flip_left_right(x), x)
-    y = tf.where(is_flip_h, tf.image.flip_left_right(y), y)
-    e = tf.where(is_flip_h, tf.image.flip_left_right(e), e)
-
-    # 4. Rotação vetorizada
-    x = tf.image.rot90(x, k=k)
-    y = tf.image.rot90(y, k=k)
-    e = tf.image.rot90(e, k=k)
-
-    return x, y, e
-
-
 # %% Correction by Google IA
 
 @tf.function
@@ -292,20 +278,20 @@ def transform_augment_batch(items):
     Uses vectorized_map for batch-level efficiency.
     """
     def _apply_single_sample(tensors):
-        # 1 a 7 aleatório para cada amostra do lote
+        # Options 1 to 7
         opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
         
-        # Condições booleanas para os flips
+        # 1. Flip Vertical (opcao 1, 6, 7) or Flip Horizontal (opcao 2)
         cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
         cond_flip_h = tf.equal(opcao, 2)
         
-        # Correção e Otimização: Tabela de busca direta substituindo os tf.where aninhados
-        # Índices mapeados:          0  1  2  3  4  5  6  7
+        # Lookup table for number k of rotations
+        # Indexes mapped: [0  1  2  3  4  5  6  7]
         mapa_k = tf.constant([ 0,  0,  0,  1,  2,  3,  1,  3], dtype=tf.int32)
         k = tf.gather(mapa_k, opcao)
 
         def transform(t):
-            # tf.where puramente matemático obrigatório para o vectorized_map
+            # apply transforms according to conditions
             t = tf.where(cond_flip_v, tf.image.flip_up_down(t), t)
             t = tf.where(cond_flip_h, tf.image.flip_left_right(t), t)
             return tf.image.rot90(t, k=k)
@@ -314,31 +300,47 @@ def transform_augment_batch(items):
 
     return tf.vectorized_map(_apply_single_sample, items)
 
-# %% Made by Gemini
-
+# %% Optimized by Google IA (if is necessary)
 
 @tf.function
-def transform_augment_batch(items):
+def transform_augment_batch_optimized(items):
     """
-    Applies unique D4 transformations to each item in a tuple (x, y, and optionally e).
-    Uses vectorized_map for batch-level efficiency.
+    Aplica transformações D4 únicas para cada item em uma tupla (x, y, e).
+    Abordagem puramente matemática otimizada para o vectorized_map.
     """
+    # 1. Tabelas de busca encapsuladas na função principal (Grafos estáticos)
+    MAPA_K = tf.constant([0, 0, 0, 1, 2, 3, 1, 3], dtype=tf.int32)
+    MAPA_FLIPS = tf.constant([
+        [0, 0],  # Opção 0: Original (Sem flips, k=0)
+        [1, 0],  # Opção 1: Apenas Flip Vertical (k=0)
+        [0, 1],  # Opção 2: Apenas Flip Horizontal (k=0)
+        [0, 0],  # Opção 3: Apenas Rotação 90° (Sem flips, k=1)
+        [0, 0],  # Opção 4: Apenas Rotação 180° (Sem flips, k=2)
+        [0, 0],  # Opção 5: Apenas Rotação 270° (Sem flips, k=3)
+        [1, 0],  # Opção 6: Flip Vertical + Rotação 90° (k=1)
+        [1, 0],  # Opção 7: Flip Vertical + Rotação 270° (k=3)
+    ], dtype=tf.int32)
+
     def _apply_single_sample(tensors):
-        # Generate a unique seed for this specific sample in the batch
-        opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
+        # Sorteia um índice de 0 a 7 por amostra do lote
+        opcao = tf.random.uniform([], minval=0, maxval=8, dtype=tf.int32)
         
-        cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
-        cond_flip_h = tf.equal(opcao, 2)
+        # Recupera as transformações sem criar novos nós de memória
+        k = tf.gather(MAPA_K, opcao)
+        flips = tf.gather(MAPA_FLIPS, opcao)
         
-        k = tf.where(tf.math.logical_or(tf.equal(opcao, 3), tf.equal(opcao, 6)), 1,
-            tf.where(tf.equal(opcao, 4), 2,
-            tf.where(tf.math.logical_or(tf.equal(opcao, 5), tf.equal(opcao, 7)), 3, 0)))
+        flip_v = flips[0]
+        flip_h = flips[1]
 
         def transform(t):
-            t = tf.where(cond_flip_v, tf.image.flip_up_down(t), t)
-            t = tf.where(cond_flip_h, tf.image.flip_left_right(t), t)
+            # Passos dinâmicos para fatiamento/inversão de eixos
+            passo_v = 1 - 2 * flip_v
+            passo_h = 1 - 2 * flip_h
+            t = t[::passo_v, ::passo_h, :]
             return tf.image.rot90(t, k=k)
 
         return tf.nest.map_structure(transform, tensors)
 
     return tf.vectorized_map(_apply_single_sample, items)
+
+

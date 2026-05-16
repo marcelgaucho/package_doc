@@ -12,7 +12,7 @@ import numpy as np
 import tensorflow as tf 
 from .lr_decay import ReduceOnPlateau
 from .steps import train_step, test_step
-from .utils import transform_augment_batch
+from .utils import transform_augment_batch, show_imgs_augmented
 import time
 
 
@@ -61,6 +61,9 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 x_batch = tf.concat(aug_x_list, axis=0)
                 y_batch = tf.concat(aug_y_list, axis=0)
                 if e_batch is not None: e_batch = tf.concat(aug_e_list, axis=0)
+                
+                # DEBUG
+                # show_imgs_augmented(x_batch, augmented[0])
 
             # Execution
             loss_value = train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch)
