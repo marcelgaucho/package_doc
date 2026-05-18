@@ -104,10 +104,16 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             schedule.step(monitor_value)
 
         # Improvement Logic with Early Stopping
-        if early_stopper.step(monitor_value, model, model_path):
+        if early_stopper.step(current_val_loss, current_val_metric, model, model_path):
             break
 
         val_loss_tracker.reset_state()
         for m in metrics_val: m.reset_state()
 
-    return [history_train, history_valid]
+    # Return a dictionary containing histories AND the scalar best records
+    return {
+            "history_train": history_train,
+            "history_valid": history_valid,
+            "best_loss": early_stopper.best_loss,
+            "best_metric": early_stopper.best_metric
+        }

@@ -78,4 +78,66 @@ class ReduceOnPlateau:
             print(f"\n[LR Decay] No improvement for {self.patience} epochs. Reducing LR: {old_lr:.6f} -> {new_lr:.6f}")
         else:
             print(f"\n[LR Decay] Plateau reached, LR is already at min_lr ({self.min_lr:.6e})")
+            
+# %% Strategies for learning rate decay
+
+from abc import ABC, abstractmethod
+
+class LRStrategy(ABC):
+    @abstractmethod
+    def setup(self, optimizer, steps_per_epoch, initial_lr):
+        """Configures the optimizer learning rate profile at start."""
+        pass
+
+    def on_epoch_end(self, monitor_value):
+        """Optional hook called at the end of each epoch (e.g., for plateau decay)."""
+        pass
+
+
+class ConstantLR(LRStrategy):
+    """Standard fixed learning rate strategy."""
+    def setup(self, optimizer, steps_per_epoch, initial_lr):
+        optimizer.learning_rate.assign(initial_lr)
+
+
+class StepDecayStrategy(LRStrategy):
+    """Drops the learning rate by a fixed factor at specific epoch intervals."""
+    def __init__(self, drop_rate=0.1, epochs_per_drop=10):
+        self.drop_rate = drop_rate
+        self.epochs_per_drop = epochs_per_drop
+
+    def setup(self, optimizer, steps_per_epoch, initial_lr):
+        optimizer.learning_rate = StepDecay(
+            initial_lr=initial_lr, 
+            steps_per_epoch=steps_per_epoch,
+            drop_rate=self.drop_rate, 
+            epochs_per_drop=self.epochs_per_drop
+        )
+
+
+class ReduceOnPlateauStrategy(LRStrategy):
+    """Reduces learning rate when a monitored metric has stopped improving."""
+    def __init__(self, decay_factor=0.5, patience=5, min_lr=1e-6, min_delta=0.001, mode='max'):
+        self.decay_factor = decay_factor
+        self.patience = patience
+        self.min_lr = min_lr
+        self.min_delta = min_delta
+        self.mode = mode
+        self.scheduler = None
+
+    def setup(self, optimizer, steps_per_epoch, initial_lr):
+        optimizer.learning_rate.assign(initial_lr)
+        # Initialize your custom ReduceOnPlateau tracker
+        self.scheduler = ReduceOnPlateau(
+            optimizer, 
+            decay_factor=self.decay_factor, 
+            patience=self.patience, 
+            min_lr=self.min_lr, 
+            min_delta=self.min_delta, 
+            mode=self.mode
+        )
+
+    def on_epoch_end(self, monitor_value):
+        if self.scheduler:
+            self.scheduler.step(monitor_value)
         
