@@ -21,6 +21,8 @@ import numpy as np
 import re
 import json
 
+import pdb
+
 # %% Disable GPU and limit number of CPU threads (and thus the number of cpu cores) to use in evaluation
 
 # from osgeo import gdal # First import gdal when it gives error
@@ -41,7 +43,7 @@ tf.config.threading.set_intra_op_parallelism_threads(cpu_threads)
 
 # %% Configuration dirs
 
-outputs_dir = r'experimentos_deforestation/out_resunet/'
+outputs_dir = r'experimentos_deforestation/out_resunet/out_resunet_fadd/'
 outputs_dir = Path(outputs_dir)
 
 model_dirs = [d for d in outputs_dir.iterdir() if re.match('m_\d', d.name) and d.is_dir()]
@@ -56,7 +58,7 @@ label_tiles_dir = Path(label_tiles_dir)
 in_x_dir = r'experimentos_deforestation/x_dir/' # Original x_dir
 out_x_dir = r'experimentos_deforestation/out_resunet/x_dir/' # New x_dir with uncertainty
 
-
+#pdb.set_trace()
 # %% Parameters
 
 min_target_scale = 0
@@ -98,28 +100,28 @@ if metric_uncertainty == UncertaintyMetric.Entropy:
     np.save(folder_uncertainty / f'{UncertaintyMetric.Entropy.value}_{data_group.value}.npy', entropy)
     uncertainty_array = entropy
     if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Entropy Distribution', log_scale=True,    
-                                                 save_path=folder_uncertainty /  'entropy_plot.png')
+                                                 save_path=folder_uncertainty /  f'{UncertaintyMetric.Entropy.value}_plot_{data_group.value}.png')
 elif metric_uncertainty == UncertaintyMetric.Surprise:
     surprise = uncertainty_calc.surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                  perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.Surprise.value}_{data_group.value}.npy', surprise)
     uncertainty_array = surprise
     if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Surprise Distribution', log_scale=True,    
-                                                 save_path=folder_uncertainty /  'entropy_plot.png')
+                                                 save_path=folder_uncertainty /  f'{UncertaintyMetric.Surprise.value}_plot_{data_group.value}.png')
 elif metric_uncertainty == UncertaintyMetric.WeightedSurprise:
     weighted_surprise = uncertainty_calc.weighted_surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                                    perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.WeightedSurprise.value}_{data_group.value}.npy', weighted_surprise)
     uncertainty_array = weighted_surprise
     if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Weighted Surprise Distribution', log_scale=True,    
-                                                 save_path=folder_uncertainty /  'entropy_plot.png')
+                                                 save_path=folder_uncertainty /  f'{UncertaintyMetric.WeightedSurprise.value}_plot_{data_group.value}.png')
 elif metric_uncertainty == UncertaintyMetric.ProbMean:
     prob_mean = uncertainty_calc.prob_mean(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                    perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.ProbMean.value}_{data_group.value}.npy', prob_mean)
     uncertainty_array = prob_mean
     if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Mean Probability Distribution', log_scale=True,    
-                                                 save_path=folder_uncertainty /  'entropy_plot.png')
+                                                 save_path=folder_uncertainty /  f'{UncertaintyMetric.ProbMean.value}_plot_{data_group.value}.png')
 
 # %% Load reference mosaics and check if exists ignored index
 
@@ -140,7 +142,7 @@ if export_mosaics:
                               info_tiles=info_tiles_test, 
                               tiles_dir=label_tiles_dir,
                               output_dir=folder_uncertainty)
-    mosaics.build_mosaics()
+    mosaics.build_mosaics(dtype=np.float32)
     if ignore_in_y_mosaics:
         mosaics.mosaics[y_mosaics == ignore_index] = ignore_index   
     mosaics.export_mosaics(prefix=prefix)

@@ -52,9 +52,6 @@ class ModelTrainer:
         metrics_val = metrics_val or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         loss_fn = loss_fn or tf.keras.losses.CategoricalCrossentropy(from_logits=False)
 
-        assert len(metrics_train) > 0, "List of metrics on train must have at least one element"
-        assert len(metrics_val) > 0, "List of metrics on validation must have at least one element"
-        
         # Snapshot execution configuration parameters for logging
         dict_parameters = locals().copy()
         del dict_parameters['self']
@@ -65,7 +62,8 @@ class ModelTrainer:
         
         # Scale batch size down for data augmentation factoring
         if data_augmentation:
-            assert batch_size % augment_batch_factor == 0, "Batch size must be divisible by augment_batch_factor"
+            if batch_size % augment_batch_factor != 0: 
+                raise ValueError(f"Batch size ({batch_size}) must be perfectly divisible by augment_batch_factor ({augment_batch_factor}).")
             batch_size //= augment_batch_factor
 
         # 1. Pipeline Stage: Build and structure Datasets
@@ -131,7 +129,7 @@ class ModelTrainer:
             raise ValueError('Only one decay parameter can be True, except if all decay parameters are False')
             
         if step_decay:
-            steps_per_epoch = train_dataset.cardinality().numpy() // batch_size
+            steps_per_epoch = train_dataset.cardinality().numpy() # dataset is already batched, so cardinality == total number of batches
             optimizer.learning_rate = StepDecay(
                 initial_lr=learning_rate, steps_per_epoch=steps_per_epoch,
                 drop_rate=0.1, epochs_per_drop=10
