@@ -126,11 +126,11 @@ class PatchProcessor:
             if split_name in ['train', 'valid']:
                 object_indexes = IndexesFinder(y_p).object_patches(threshold=0.02,
                                                                    target_class=1)
-                x_p, y_p, coords = x_p[object_indexes], y_p[object_indexes], coords[object_indexes] # By Nodataless
+                x_p, y_p, coords = x_p[object_indexes], y_p[object_indexes], coords[object_indexes] # By Object
                 
                 nodataless_indexes = IndexesFinder(x_p).nodataless_patches(nodata_value=0,
                                                                            nodata_tolerance=0)
-                x_p, y_p, coords = x_p[nodataless_indexes], y_p[nodataless_indexes], coords[nodataless_indexes] # By Object
+                x_p, y_p, coords = x_p[nodataless_indexes], y_p[nodataless_indexes], coords[nodataless_indexes] # By Nodataless
             
             # 5. Normalize Patches
             x_p, _, _ = minmax_normalize(x_p, self.global_min_train, self.global_max_train)
