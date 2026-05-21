@@ -217,6 +217,8 @@ class ModelTrainer:
             f.write('Resultado = \n')
             f.write(str(result_history))
             f.write(f'\nTempo total gasto no treinamento foi de {duration:.2f} segundos, {duration/3600:.1f} horas.')
+            f.write(f'\n[Melhor Época] Melhor Loss: {self.best_loss:.4f}')
+            f.write(f'\n[Melhor Época] Melhor Métrica: {self.best_metric:.4f}')
             
         with open(self.output_dir / 'history_pickle_best_model.pickle', "wb") as fp: 
             pickle.dump(result_history, fp)

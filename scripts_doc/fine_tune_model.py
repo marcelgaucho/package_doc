@@ -56,7 +56,7 @@ else:
 batch_size = 16
 model_type = 'resunet'
 early_stopping_epochs = 2
-reduce_on_plateau = False
+reduce_on_plateau = True
 
 # %% Input and output directories
 
@@ -111,16 +111,16 @@ if not Path(output_dir).exists():
 model_trainer = ModelTrainer(x_dir=x_dir, output_dir=output_dir, model=model, optimizer=Adam())
 
 # Stage 2: Pick a flexible Strategy pattern and execute
-fine_tune_config = LayerIndexStrategy(fine_tune_at=43, learning_rate=1e-5)
+fine_tune_config = LayerIndexStrategy(fine_tune_at=31, learning_rate=1e-5)
 result_finetune = model_trainer.fine_tune(model_path,
-                                                strategy=fine_tune_config, epochs=2000, early_stopping_epochs=early_stopping_epochs,
-                                                metrics_train=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-                                                metrics_val=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-                                                loss_fn=custom_entropy_loss,
-                                                buffer_shuffle=None, batch_size=batch_size,
-                                                data_augmentation=True, augment_batch_factor=2,
-                                                reduce_on_plateau=reduce_on_plateau,
-                                                entropy_dir=entropy_dir)
+                                          strategy=fine_tune_config, epochs=2000, early_stopping_epochs=early_stopping_epochs,
+                                          metrics_train=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
+                                          metrics_val=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
+                                          loss_fn=custom_entropy_loss,
+                                          buffer_shuffle=None, batch_size=batch_size,
+                                          data_augmentation=True, augment_batch_factor=2,
+                                          reduce_on_plateau=reduce_on_plateau,
+                                          entropy_dir=entropy_dir)
 del model_trainer
 
                   
