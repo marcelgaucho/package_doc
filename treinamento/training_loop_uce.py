@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu May 14 16:20:24 2026
+Created on Thu May 21 19:25:23 2026
 
 @author: rotunno
 """
 
-# %% Import libraries
+# %% Imports
 
 import numpy as np
 import tensorflow as tf 
 from .lr_decay import ReduceOnPlateau
-from .steps import train_step, test_step
+from .steps import train_step, test_step, train_step_uce
 from .utils import transform_augment_batch, show_imgs_augmented
 from .early_stopping import EarlyStopping
 import time
@@ -21,16 +21,15 @@ import time
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
                      loss_fn, metrics_train=[], metrics_val=[], model_path='best_model.keras',
                      early_stopping_delta=0.01, data_augmentation=False, reduce_on_plateau=True,
-                     mode='max', augment_batch_factor=2):
+                     mode='max', augment_batch_factor=2, 
+                     mc_samples=5, u_ce_alpha=1.0): # <-- Added U-CE params
     
     # 1. Setup Tracking
     history_train, history_valid = [], []
     
-    # Use Keras metrics for mean loss to handle varying batch sizes automatically
     train_loss_tracker = tf.keras.metrics.Mean(name="train_loss")
     val_loss_tracker = tf.keras.metrics.Mean(name="val_loss")
     
-    # Instantiate Early Stopping and Reduce on Plateau classes
     early_stopper = EarlyStopping(patience=early_stopping_epochs, min_delta=early_stopping_delta, mode=mode)
     
     if reduce_on_plateau:
@@ -43,12 +42,10 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
 
         # --- TRAINING ---
         for step, batches in enumerate(train_dataset):
-            # Dynamic unpacking
             x_batch, y_batch = batches[0], batches[1]
             e_batch = batches[2] if len(batches) == 3 else None
 
             if data_augmentation:
-                # Generate multiple augmented versions
                 aug_x_list, aug_y_list, aug_e_list = [x_batch], [y_batch], ([e_batch] if e_batch is not None else [])
                 
                 for _ in range(augment_batch_factor - 1):
@@ -62,12 +59,12 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
                 x_batch = tf.concat(aug_x_list, axis=0)
                 y_batch = tf.concat(aug_y_list, axis=0)
                 if e_batch is not None: e_batch = tf.concat(aug_e_list, axis=0)
-                
-                # DEBUG
-                # show_imgs_augmented(x_batch, augmented[0])
 
-            # Execution
-            loss_value = train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch)
+            # Execution (Using the new U-CE train step)
+            loss_value = train_step_uce(
+                x_batch, y_batch, model, optimizer, metrics_train, e_batch, 
+                mc_samples=mc_samples, alpha=u_ce_alpha
+            )
             train_loss_tracker.update_state(loss_value)
 
             if step % 200 == 0:
@@ -86,6 +83,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             x_v, y_v = batches[0], batches[1]
             e_v = batches[2] if len(batches) == 3 else None
             
+            # Note: Validation typically uses a deterministic forward pass (no MC-Dropout)
+            # unless you specifically want to track U-CE loss limits on validation too.
             val_loss_val = test_step(x_v, y_v, model, loss_fn, metrics_val, e_v)
             val_loss_tracker.update_state(val_loss_val)
 
@@ -101,17 +100,16 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
         if reduce_on_plateau:
             schedule.step(monitor_value)
 
-        # Improvement Logic with Early Stopping
         if early_stopper.step(current_val_loss, current_val_metric, model, model_path):
             break
 
         val_loss_tracker.reset_state()
         for m in metrics_val: m.reset_state()
 
-    # Return a dictionary containing histories AND the scalar best records
     return {
-            "history_train": history_train,
-            "history_valid": history_valid,
-            "best_loss": early_stopper.best_loss,
-            "best_metric": early_stopper.best_metric
-        }
+        "history_train": history_train,
+        "history_valid": history_valid,
+        "best_loss": early_stopper.best_loss,
+        "best_metric": early_stopper.best_metric
+    }
+

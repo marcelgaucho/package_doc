@@ -202,4 +202,40 @@ def custom_add_entropy_loss(y_true, y_pred, entropy_weight):
     # Return the division
     return tf.reduce_sum(masked_loss) / denominator
 
+# %% U-CE Loss
 
+def uce_categorical_crossentropy(y_true, y_pred, sigma, alpha=1.0, e_batch=None):
+    """
+    Computes the Uncertainty-aware Categorical Cross-Entropy.
+    Assumes y_true is one-hot encoded, and [0,0,...] indicates ignored pixels.
+    """
+    # 1. Base Categorical Cross-Entropy (Unreduced)
+    # y_true: [B, H, W, C], y_pred: [B, H, W, C]
+    # base_ce shape: [B, H, W]
+    base_ce = tf.keras.losses.categorical_crossentropy(y_true, y_pred, from_logits=False)
+    
+    # 2. Apply U-CE Weighting: w = (1 + sigma)^alpha
+    u_ce_weight = (1.0 + sigma) ** alpha
+    weighted_loss = base_ce * u_ce_weight
+    
+    # 3. Create the Mask to ignore past deforestation
+    # For valid pixels [1, 0] or [0, 1], the sum is 1.0. 
+    # For ignored pixels [0, 0], the sum is 0.0.
+    mask = tf.cast(tf.reduce_sum(y_true, axis=-1), dtype=weighted_loss.dtype)
+    
+    # Combine with external sample weights (e_batch) if provided
+    if e_batch is not None:
+        if len(e_batch.shape) > len(mask.shape):
+            e_batch = tf.squeeze(e_batch, axis=-1)
+        mask = mask * tf.cast(e_batch, dtype=mask.dtype)
+        
+    # Zero out the loss for ignored pixels
+    masked_loss = weighted_loss * mask
+    
+    # 4. Safe Mean Reduction (divide by valid pixels only)
+    valid_pixels = tf.reduce_sum(mask)
+    
+    # divide_no_nan prevents errors if a batch happens to be 100% ignored pixels
+    final_loss = tf.math.divide_no_nan(tf.reduce_sum(masked_loss), valid_pixels)
+    
+    return final_loss

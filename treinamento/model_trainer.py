@@ -17,7 +17,8 @@ import tensorflow as tf
 from tensorflow.keras.metrics import Precision, Recall
 from .metrics import CustomF1Score
 from .lr_decay import StepDecay
-from .training_loop import train_model_loop
+# from .training_loop import train_model_loop
+from .training_loop_uce import train_model_loop
 from .utils import show_training_plot
 from .fine_tuning import FineTuneStrategy
 
