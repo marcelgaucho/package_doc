@@ -63,8 +63,13 @@ def train_step_uce(x_batch, y_batch, model, optimizer, metrics_train, e_batch=No
         # Mean prediction across the MC samples
         mean_preds = tf.reduce_mean(mc_preds_stack, axis=0)
         
-        # 2. Calculate Predictive Uncertainty (Sigma)
-        std_preds = tf.math.reduce_std(mc_preds_stack, axis=0)
+        # 2. Calculate Predictive Uncertainty (Sigma) SAFELY
+        # Calculate variance instead of std directly
+        variance = tf.math.reduce_variance(mc_preds_stack, axis=0)
+        
+        # Add epsilon BEFORE square root to prevent NaN gradients (1e-7 is standard)
+        std_preds = tf.sqrt(variance + 1e-7)
+        
         pred_class = tf.argmax(mean_preds, axis=-1)
         num_classes = tf.shape(mean_preds)[-1]
         pred_class_one_hot = tf.one_hot(pred_class, depth=num_classes)
