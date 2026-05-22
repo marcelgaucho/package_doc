@@ -26,13 +26,12 @@ from .segformer_tf_k2.models import SegFormer_B5
 # %% Build Model Function
         
 def build_model(input_shape, n_classes, model_type='unet', config_dict=None, 
-                use_dropout=None, dropout_rate=0):
+                dropout_rate=0):
     if model_type == 'unet':
         return build_model_unet(input_shape, n_classes)
     
     elif model_type == 'resunet':
-        return build_model_resunet(input_shape, n_classes, 
-                                   use_dropout=use_dropout, dropout_rate=dropout_rate)
+        return build_model_resunet(input_shape, n_classes, dropout_rate=dropout_rate)
     
     elif model_type == 'unetr':
         return build_unetr_2d(input_shape, n_classes, config_dict)
