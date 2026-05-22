@@ -88,6 +88,10 @@ def train_step_uce(x_batch, y_batch, model, optimizer, metrics_train, e_batch=No
 
     # 4. Backpropagation
     gradients = tape.gradient(loss_value, model.trainable_variables)
+    
+    # Optional but highly recommended: Gradient Clipping to catch any other spikes
+    # gradients = [tf.clip_by_norm(g, 1.0) for g in gradients if g is not None]
+    
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
     # 5. Update Metrics (passing the mask so metrics ignore [0,0] pixels)
@@ -100,3 +104,38 @@ def train_step_uce(x_batch, y_batch, model, optimizer, metrics_train, e_batch=No
         metric.update_state(y_batch, mean_preds, sample_weight=metric_mask)
         
     return loss_value
+
+# %%
+
+@tf.function
+def test_step_uce(x_batch, y_batch, model, metrics_val, e_batch=None):
+    # 1. Deterministic forward pass (Dropout is disabled)
+    preds = model(x_batch, training=False)
+    
+    # 2. Base Categorical Cross-Entropy (Unreduced)
+    # y_batch: [B, H, W, C], preds: [B, H, W, C]
+    # base_ce shape: [B, H, W]
+    base_ce = tf.keras.losses.categorical_crossentropy(y_batch, preds, from_logits=False)
+    
+    # 3. Create the Mask to ignore past deforestation
+    # For valid pixels [1, 0] or [0, 1], the sum is 1.0. 
+    # For ignored pixels [0, 0], the sum is 0.0.
+    mask = tf.cast(tf.reduce_sum(y_batch, axis=-1), dtype=base_ce.dtype)
+    
+    # Combine with external sample weights (e_batch) if provided
+    if e_batch is not None:
+        if len(e_batch.shape) > len(mask.shape):
+            e_batch = tf.squeeze(e_batch, axis=-1)
+        mask = mask * tf.cast(e_batch, dtype=mask.dtype)
+        
+    # 4. Safe Mean Reduction for Validation Loss
+    masked_loss = base_ce * mask
+    valid_pixels = tf.reduce_sum(mask)
+    
+    val_loss = tf.math.divide_no_nan(tf.reduce_sum(masked_loss), valid_pixels)
+    
+    # 5. Update Metrics (crucial: pass the mask as sample_weight)
+    for metric in metrics_val:
+        metric.update_state(y_batch, preds, sample_weight=mask)
+        
+    return val_loss

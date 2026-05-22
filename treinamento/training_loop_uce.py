@@ -11,7 +11,7 @@ Created on Thu May 21 19:25:23 2026
 import numpy as np
 import tensorflow as tf 
 from .lr_decay import ReduceOnPlateau
-from .steps import train_step, test_step, train_step_uce
+from .steps import train_step, test_step, train_step_uce, test_step_uce
 from .utils import transform_augment_batch, show_imgs_augmented
 from .early_stopping import EarlyStopping
 import time
@@ -85,7 +85,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             
             # Note: Validation typically uses a deterministic forward pass (no MC-Dropout)
             # unless you specifically want to track U-CE loss limits on validation too.
-            val_loss_val = test_step(x_v, y_v, model, loss_fn, metrics_val, e_v)
+            val_loss_val = test_step_uce(x_v, y_v, model, metrics_val, e_v)
             val_loss_tracker.update_state(val_loss_val)
 
         # Finalize Val Metrics

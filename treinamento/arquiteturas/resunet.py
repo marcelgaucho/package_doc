@@ -24,7 +24,7 @@ def batchnorm_relu(inputs):
     x = Activation("relu")(x)
     return x
 
-def residual_block(inputs, num_filters, strides=1, use_dropout=None, dropout_rate=0):
+def residual_block(inputs, num_filters, strides=1, dropout_rate=0):
     """ Convolutional Layers """
     x = batchnorm_relu(inputs)
     x = Conv2D(num_filters, 3, padding="same", strides=strides)(x)
@@ -32,9 +32,7 @@ def residual_block(inputs, num_filters, strides=1, use_dropout=None, dropout_rat
     
     # Inject Spatial Dropout here if rate > 0
     if dropout_rate > 0:
-        # training=True forces dropout to stay active; training=None turns to automatic behavior
-        training_flag = True if use_dropout else None
-        x = SpatialDropout2D(dropout_rate)(x, training=training_flag) 
+        x = SpatialDropout2D(dropout_rate)(x) 
     
     x = Conv2D(num_filters, 3, padding="same", strides=1)(x)
     
@@ -45,16 +43,16 @@ def residual_block(inputs, num_filters, strides=1, use_dropout=None, dropout_rat
     x = Add()([x, s])
     return x
 
-def decoder_block(inputs, skip_features, num_filters, use_dropout=None, dropout_rate=0):
+def decoder_block(inputs, skip_features, num_filters, dropout_rate=0):
     """ Decoder Block """
     x = UpSampling2D((2, 2))(inputs)
     x = Concatenate()([x, skip_features])
-    x = residual_block(x, num_filters, strides=1, use_dropout=use_dropout, dropout_rate=dropout_rate) # Pass the dropout rate down to the residual block
+    x = residual_block(x, num_filters, strides=1, dropout_rate=dropout_rate) # Pass the dropout rate down to the residual block
     return x
 
 # %% ResUnet Build Function
 
-def build_model_resunet(input_shape, n_classes, use_dropout=None, dropout_rate=0):
+def build_model_resunet(input_shape, n_classes, dropout_rate=0):
     """ RESUNET Architecture (with MC Dropout) """
     inputs = Input(input_shape)
     
@@ -66,16 +64,16 @@ def build_model_resunet(input_shape, n_classes, use_dropout=None, dropout_rate=0
     s1 = Add()([x, s])
     
     """ Encoder 2, 3 """
-    s2 = residual_block(s1, 128, strides=2, use_dropout=use_dropout, dropout_rate=0)
-    s3 = residual_block(s2, 256, strides=2, use_dropout=use_dropout, dropout_rate=0)
+    s2 = residual_block(s1, 128, strides=2, dropout_rate=0)
+    s3 = residual_block(s2, 256, strides=2, dropout_rate=0)
     
     """ Bridge """
-    b = residual_block(s3, 512, strides=2, use_dropout=use_dropout, dropout_rate=dropout_rate) # Apply Dropout
+    b = residual_block(s3, 512, strides=2, dropout_rate=dropout_rate) # Apply Dropout
 
     """ Decoder 1, 2, 3 """
-    x = decoder_block(b, s3, 256, use_dropout=use_dropout, dropout_rate=dropout_rate) # Deep decoder
-    x = decoder_block(x, s2, 128, use_dropout=use_dropout, dropout_rate=dropout_rate) # Mid decoder
-    x = decoder_block(x, s1, 64, use_dropout=use_dropout, dropout_rate=0)          # Final block (no dropout)
+    x = decoder_block(b, s3, 256, dropout_rate=dropout_rate) # Deep decoder
+    x = decoder_block(x, s2, 128, dropout_rate=dropout_rate) # Mid decoder
+    x = decoder_block(x, s1, 64, dropout_rate=0)          # Final block (no dropout)
     
     """ Classifier """
     outputs = Conv2D(n_classes, 1, padding="same", activation="softmax")(x)
