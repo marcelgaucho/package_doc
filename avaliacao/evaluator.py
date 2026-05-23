@@ -18,7 +18,7 @@ from ..treinamento.arquiteturas.unetr_2d import Patches
 from ..treinamento.arquiteturas.segformer_tf_k2.models.modules import MixVisionTransformer
 from ..treinamento.arquiteturas.segformer_tf_k2.models.Head import SegFormerHead
 from ..treinamento.arquiteturas.segformer_tf_k2.models.utils import ResizeLayer
-from ..treinamento.trainer import ModelTrainer
+from ..treinamento.model_trainer import ModelTrainer
 
 from .metric_calculator import RelaxedMetricCalculator
 from .mosaics import MosaicGenerator
