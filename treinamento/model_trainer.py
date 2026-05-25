@@ -16,7 +16,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Precision, Recall
 from .metrics import CustomF1Score
-from .lr_decay import StepDecay
+from .lr_decay import StepDecay, ConstantLR, LRStrategy
 # from .training_loop import train_model_loop
 from .training_loop_uce import train_model_loop
 from .utils import show_training_plot
@@ -46,7 +46,7 @@ class ModelTrainer:
                         metrics_train=None, metrics_val=None,
                         learning_rate=0.001, loss_fn=None,
                         buffer_shuffle=None, batch_size=16, data_augmentation=False,
-                        mode='max', augment_batch_factor=2, step_decay=False, reduce_on_plateau=True,
+                        mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None, 
                         entropy_dir=None):
         
         # Handle mutable defaults safely
@@ -54,6 +54,9 @@ class ModelTrainer:
         metrics_val = metrics_val or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         loss_fn = loss_fn or tf.keras.losses.CategoricalCrossentropy(from_logits=False)
 
+        # Default strategy if none is provided
+        lr_strategy = lr_strategy or ConstantLR()
+        
         # Snapshot execution configuration parameters for logging
         dict_parameters = locals().copy()
         del dict_parameters['self']
@@ -72,7 +75,7 @@ class ModelTrainer:
         train_dataset, valid_dataset = self._prepare_datasets(entropy_dir, batch_size, buffer_shuffle)
 
         # 2. Pipeline Stage: Configure Schedulers and Optimizer
-        optimizer = self._configure_optimizer(model, learning_rate, step_decay, reduce_on_plateau, train_dataset, batch_size)
+        optimizer = self._configure_optimizer(model, learning_rate, lr_strategy, train_dataset, batch_size)
 
         # 3. Pipeline Stage: Fire Custom Loop Execution Engine
         results = train_model_loop(
@@ -80,8 +83,8 @@ class ModelTrainer:
             train_dataset=train_dataset, valid_dataset=valid_dataset,
             optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
             model_path=self.model_path, early_stopping_delta=self.early_stopping_delta,
-            data_augmentation=data_augmentation, reduce_on_plateau=reduce_on_plateau,
-            mode=mode, augment_batch_factor=augment_batch_factor
+            data_augmentation=data_augmentation, lr_strategy=lr_strategy,  
+            mode=mode, augment_batch_factor=augment_batch_factor,
         )
         
         # Support both the legacy raw list output and the modern structured dictionary output
@@ -101,13 +104,15 @@ class ModelTrainer:
     def fine_tune(self, model_path, strategy: FineTuneStrategy, epochs=1000, early_stopping_epochs=30,
                   metrics_train=None, metrics_val=None, loss_fn=None,
                   buffer_shuffle=None, batch_size=16, data_augmentation=False,
-                  mode='max', augment_batch_factor=2, step_decay=False, reduce_on_plateau=True,
+                  mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None,
                   entropy_dir=None):
         """Phase 2 execution using an interchangeable FineTuneStrategy configuration."""
         
         metrics_train = metrics_train or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         metrics_val = metrics_val or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         loss_fn = loss_fn or tf.keras.losses.CategoricalCrossentropy(from_logits=False)
+        
+        lr_strategy = lr_strategy or ConstantLR()
 
         dict_parameters = locals().copy()
         del dict_parameters['self']
@@ -132,7 +137,7 @@ class ModelTrainer:
         
         # 4. Configure optimizer using strategy's custom micro-learning rate
         optimizer = self._configure_optimizer(
-            model, strategy.learning_rate, step_decay, reduce_on_plateau, train_dataset, batch_size
+            model, strategy.learning_rate, lr_strategy, train_dataset, batch_size
         )
 
         # 5. Fire training engine loop for fine-tuning
@@ -142,8 +147,8 @@ class ModelTrainer:
             train_dataset=train_dataset, valid_dataset=valid_dataset,
             optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
             model_path=self.model_path, early_stopping_delta=self.early_stopping_delta,
-            data_augmentation=data_augmentation, reduce_on_plateau=reduce_on_plateau,
-            mode=mode, augment_batch_factor=augment_batch_factor
+            data_augmentation=data_augmentation, lr_strategy=lr_strategy,  
+            mode=mode, augment_batch_factor=augment_batch_factor            
         )
         
         if isinstance(results, dict):
@@ -182,22 +187,14 @@ class ModelTrainer:
             valid_ds.shuffle(shuffle_valid).batch(batch_size)
         )
 
-    def _configure_optimizer(self, model, learning_rate, step_decay, reduce_on_plateau, train_dataset, batch_size):
+    def _configure_optimizer(self, model, learning_rate, lr_strategy, train_dataset, batch_size):
         """Internal helper to build optimizer variables and assign learning rate routines."""
         optimizer = self.optimizer
         optimizer.build(model.trainable_variables)
+        steps_per_epoch = train_dataset.cardinality().numpy() # cardinality == total number of batches (dataset is already batched)
 
-        if step_decay and reduce_on_plateau:
-            raise ValueError('Only one decay parameter can be True, except if all decay parameters are False')
-            
-        if step_decay:
-            steps_per_epoch = train_dataset.cardinality().numpy() # dataset is already batched, so cardinality == total number of batches
-            optimizer.learning_rate = StepDecay(
-                initial_lr=learning_rate, steps_per_epoch=steps_per_epoch,
-                drop_rate=0.1, epochs_per_drop=10
-            )
-        else:
-            optimizer.learning_rate.assign(learning_rate)
+        # Strategy pattern execution
+        lr_strategy.setup(optimizer, steps_per_epoch, learning_rate)
             
         return optimizer
 

@@ -20,7 +20,7 @@ import time
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
                      loss_fn, metrics_train=[], metrics_val=[], model_path='best_model.keras',
-                     early_stopping_delta=0.01, data_augmentation=False, reduce_on_plateau=True,
+                     early_stopping_delta=0.01, data_augmentation=False, lr_strategy=None,
                      mode='max', augment_batch_factor=2, 
                      mc_samples=5, u_ce_alpha=1.0): # <-- Added U-CE params
     
@@ -32,10 +32,6 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     
     early_stopper = EarlyStopping(patience=early_stopping_epochs, min_delta=early_stopping_delta, mode=mode)
     
-    if reduce_on_plateau:
-        schedule = ReduceOnPlateau(optimizer, decay_factor=0.5, patience=5, min_lr=1e-6, 
-                                   min_delta=early_stopping_delta, mode=mode)
-
     for epoch in range(epochs):
         print(f"\nEpoch {epoch+1}/{epochs} | LR: {optimizer.learning_rate.numpy():.6f}")
         start_time = time.time()
@@ -97,8 +93,8 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
 
         # --- SCHEDULERS & EARLY STOPPING ---
         monitor_value = current_val_metric if mode == 'max' else current_val_loss
-        if reduce_on_plateau:
-            schedule.step(monitor_value)
+        if lr_strategy:
+            lr_strategy.on_epoch_end(monitor_value)
 
         if early_stopper.step(current_val_loss, current_val_metric, model, model_path):
             break
