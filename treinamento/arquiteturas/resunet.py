@@ -37,7 +37,10 @@ def residual_block(inputs, num_filters, strides=1, dropout_rate=0):
     x = Conv2D(num_filters, 3, padding="same", strides=1)(x)
     
     """ Shortcut Connection (Identity Mapping) """
-    s = Conv2D(num_filters, 1, padding="same", strides=strides)(inputs)        
+    if strides != 1 or inputs.shape[-1] != num_filters: 
+        s = Conv2D(num_filters, 1, padding="same", strides=strides)(inputs)
+    else:
+        s = inputs        
     
     """ Addition """
     x = Add()([x, s])
