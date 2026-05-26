@@ -43,7 +43,7 @@ tf.config.threading.set_intra_op_parallelism_threads(cpu_threads)
 
 # %% Configuration dirs
 
-outputs_dir = r'experimentos_deforestation/out_resunet/out_resunet_fadd/'
+outputs_dir = r'experimentos_deforestation/out_resunet_drop/'
 outputs_dir = Path(outputs_dir)
 
 model_dirs = [d for d in outputs_dir.iterdir() if re.match('m_\d', d.name) and d.is_dir()]
@@ -80,6 +80,8 @@ scale_result = True
 # Load information
 with open(y_dir / 'info_tiles_test.json') as fp:   
     info_tiles_test = json.load(fp)
+    
+y_array = np.load(y_dir / f'y_{data_group.value}.npy')
 
 ignore_index = 255
 
@@ -99,28 +101,28 @@ if metric_uncertainty == UncertaintyMetric.Entropy:
                                perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.Entropy.value}_{data_group.value}.npy', entropy)
     uncertainty_array = entropy
-    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Entropy Distribution', log_scale=True,    
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array[y_array != ignore_index], 'Entropy Distribution', log_scale=True,    
                                                  save_path=folder_uncertainty /  f'{UncertaintyMetric.Entropy.value}_plot_{data_group.value}.png')
 elif metric_uncertainty == UncertaintyMetric.Surprise:
     surprise = uncertainty_calc.surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                  perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.Surprise.value}_{data_group.value}.npy', surprise)
     uncertainty_array = surprise
-    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Surprise Distribution', log_scale=True,    
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array[y_array != ignore_index], 'Surprise Distribution', log_scale=True,    
                                                  save_path=folder_uncertainty /  f'{UncertaintyMetric.Surprise.value}_plot_{data_group.value}.png')
 elif metric_uncertainty == UncertaintyMetric.WeightedSurprise:
     weighted_surprise = uncertainty_calc.weighted_surprise(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                                    perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.WeightedSurprise.value}_{data_group.value}.npy', weighted_surprise)
     uncertainty_array = weighted_surprise
-    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Weighted Surprise Distribution', log_scale=True,    
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array[y_array != ignore_index], 'Weighted Surprise Distribution', log_scale=True,    
                                                  save_path=folder_uncertainty /  f'{UncertaintyMetric.WeightedSurprise.value}_plot_{data_group.value}.png')
 elif metric_uncertainty == UncertaintyMetric.ProbMean:
     prob_mean = uncertainty_calc.prob_mean(min_target_scale=min_target_scale, max_target_scale=max_target_scale,
                                    perc_cut=perc_cut)
     np.save(folder_uncertainty / f'{UncertaintyMetric.ProbMean.value}_{data_group.value}.npy', prob_mean)
     uncertainty_array = prob_mean
-    if generate_plot: plot_uncertainty_histogram(uncertainty_array, 'Mean Probability Distribution', log_scale=True,    
+    if generate_plot: plot_uncertainty_histogram(uncertainty_array[y_array != ignore_index], 'Mean Probability Distribution', log_scale=True,    
                                                  save_path=folder_uncertainty /  f'{UncertaintyMetric.ProbMean.value}_plot_{data_group.value}.png')
 
 # %% Load reference mosaics and check if exists ignored index
@@ -148,7 +150,7 @@ if export_mosaics:
     mosaics.export_mosaics(prefix=prefix)
 
 # %% Create new x dir and insert data
-
+'''
 x_dir_uncer = XDirUncertain(in_x_folder=in_x_dir, y_folder=y_dir, 
                             out_x_folder=out_x_dir, 
                             model_dirs=model_dirs,
@@ -160,3 +162,4 @@ x_dir_uncer = XDirUncertain(in_x_folder=in_x_dir, y_folder=y_dir,
 x_dir_uncer.create()
 
 x_dir_uncer.insert_data() 
+'''

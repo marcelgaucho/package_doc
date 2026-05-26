@@ -35,6 +35,7 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 from pathlib import Path
 import pdb
 import numpy as np
+from package_doc.treinamento.lr_decay import ReduceOnPlateauStrategy
 
 # %% Limit GPU Memory or, in case of no gpu available, limit number of threads used
 
@@ -55,13 +56,14 @@ else:
 batch_size = 16
 model_type = 'resunet'
 early_stopping_epochs = 2
-reduce_on_plateau = True
+lr_strategy = ReduceOnPlateauStrategy(decay_factor=0.5, patience=5, min_lr=1e-6, 
+                                      min_delta=0.001, mode='max')
 
 # %% Input and output directories
 
 x_dir = r'experimentos_deforestation/x_dir/'
 y_dir = r'experimentos_deforestation/y_dir/'
-output_dir = r'experimentos_deforestation/out_resunet/m_0/'
+output_dir = r'experimentos_deforestation/out_resunet/t_0/'
 entropy_dir = None # Include uncertainty dir if it's second net
 
 # %%
@@ -82,18 +84,17 @@ n_classes = 2
 
 # %% Imports from package
 
-from package_doc.treinamento.trainer import ModelTrainer
+from package_doc.treinamento.model_trainer import ModelTrainer
 from package_doc.treinamento.metrics import CustomF1Score, RelaxedF1Score, MaskedPrecision, MaskedRecall, MaskedF1Score
 from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
 from package_doc.treinamento.custom_loss import CustomEntropyLoss, masked_weighted_cce, custom_entropy_loss, masked_cce
 
 
-# %% Build categorical cross-entropy
+# %% Build loss
 
 weights = [0.4, 2.0]
 weighted_cross = masked_weighted_cce(weights)
-
 
 # %% Build model
 
@@ -109,8 +110,7 @@ optimizer = Adam()
 if not Path(output_dir).exists():
     Path(output_dir).mkdir()
     
-model_trainer = ModelTrainer(x_dir=x_dir, y_dir=y_dir, output_dir=output_dir, model=model,
-                             optimizer=optimizer)
+model_trainer = ModelTrainer(x_dir=x_dir, output_dir=output_dir, model=model, optimizer=optimizer)
 result = model_trainer.train_with_loop(epochs=2000, early_stopping_epochs=early_stopping_epochs,
                                        metrics_train=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
                                        metrics_val=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
@@ -118,7 +118,7 @@ result = model_trainer.train_with_loop(epochs=2000, early_stopping_epochs=early_
                                        loss_fn=masked_cce,
                                        buffer_shuffle=None, batch_size=batch_size,
                                        data_augmentation=True, augment_batch_factor=2,
-                                       reduce_on_plateau=reduce_on_plateau,
+                                       lr_strategy=lr_strategy,
                                        entropy_dir=entropy_dir)
 del model_trainer
 

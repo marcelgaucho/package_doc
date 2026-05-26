@@ -9,8 +9,9 @@ Created on Mon Sep 29 18:25:36 2025
 
 # %% Import Libraries
 
+from osgeo import gdal
 import os
-os.environ["TF_USE_LEGACY_KERAS"] = "1" # Use Keras 2
+#os.environ["TF_USE_LEGACY_KERAS"] = "1" # Use Keras 2
 
 import tensorflow as tf
 import numpy as np
@@ -22,6 +23,7 @@ import pdb
 
 import argparse
 import time
+from package_doc.treinamento.lr_decay import ReduceOnPlateauStrategy
 
 # %% Limit GPU Memory or, in case of no gpu available, limit number of threads used
 
@@ -41,14 +43,18 @@ else:
 
 batch_size = 16
 model_type = 'resunet'
-early_stopping_epochs = 2
-n_models = 2
+early_stopping_epochs = 10
+n_models = 5
+lr_strategy = ReduceOnPlateauStrategy(decay_factor=0.5, patience=5, min_lr=1e-6, 
+                                      min_delta=0.001, mode='max')
 
 # %% Input and output directories
 
 x_dir = r'experimentos_deforestation/x_dir/'
 y_dir = r'experimentos_deforestation/y_dir/'
-outputs_dir = fr'experimentos_deforestation/out_{model_type}/'
+outputs_dir = r'experimentos_deforestation/out_resunet_drop/'
+entropy_dir = None
+#entropy_dir = 'experimentos_deforestation/out_resunet/uncertainty' # Set entropy dir if is second net, e.g. r'experimentos_deforestation/out_resunet/uncertainty/'
 
 # %%
 
@@ -66,28 +72,19 @@ with open(x_dir / 'x_train.npy', 'rb') as f:
 input_shape = shape[1:] # (patch_size, patch_size, channels)
 n_classes = 2
 
-# %% Input shape and numper of classes
-
-# Get array without opening array into memory
-with open(x_dir / 'x_train.npy', 'rb') as f:
-    major, minor = np.lib.format.read_magic(f)
-    shape, fortran_order, dtype = np.lib.format.read_array_header_1_0(f)
-    
-input_shape = shape[1:] # (patch_size, patch_size, channels)
-n_classes = 2
-
 # %% Imports from package
 
-from package_doc.treinamento.trainer import ModelTrainer
+from package_doc.treinamento.model_trainer import ModelTrainer
 from package_doc.treinamento.metrics import MaskedPrecision, MaskedRecall, MaskedF1Score
 from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
-from package_doc.treinamento.custom_loss import masked_weighted_cce
+from package_doc.treinamento.custom_loss import (masked_weighted_cce, masked_cce, custom_entropy_loss, custom_add_entropy_loss,
+                                                 custom_offset_entropy_loss)
 
 # %% Loss Function
 
-weights = [0.4, 2.0]
-weighted_cross = masked_weighted_cce(weights)
+#weights = [0.4, 2.0]
+#weighted_cross = masked_weighted_cce(weights)
 
 # %% Create output dir of models
 
@@ -102,22 +99,25 @@ for i in range(n_models):
     out_dir.mkdir(exist_ok=True)
     
     # Build model and optimizer
-    model = build_model(input_shape, n_classes, model_type=model_type, config_dict=config_dict)
+    model = build_model(input_shape, n_classes, model_type=model_type, config_dict=config_dict, dropout_rate=0.2)
     optimizer = Adam() 
     
     # Model trainer
-    model_trainer = ModelTrainer(x_dir=x_dir, y_dir=y_dir, output_dir=out_dir, model=model,
+    model_trainer = ModelTrainer(x_dir=x_dir, output_dir=out_dir, model=model,
                                  optimizer=optimizer)
     
     result = model_trainer.train_with_loop(epochs=2000, early_stopping_epochs=early_stopping_epochs,
                                            metrics_train=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
                                            metrics_val=[MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-                                           learning_rate=0.0001, 
-                                           loss_fn=weighted_cross,
+                                           learning_rate=0.001, 
+                                           loss_fn=masked_cce,
                                            buffer_shuffle=None, batch_size=batch_size,
-                                           data_augmentation=True, augment_batch_factor=2)
+                                           data_augmentation=True, augment_batch_factor=2,
+                                           lr_strategy=lr_strategy,
+                                           entropy_dir=entropy_dir)
     
-    # time.sleep(3600) # Comes inactive for 1 hour
+    #if i % 5 == 0:
+    #    time.sleep(7200) # Comes inactive for 2 hours
 
 
 
