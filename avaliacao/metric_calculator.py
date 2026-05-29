@@ -16,11 +16,13 @@ import json, pickle, warnings
 
 from .buffer_function import buffer_patches_array
 
+from skimage import morphology
+
 # %% Class used to calculate the relaxed metrics
 
 class RelaxedMetricCalculator:
     def __init__(self, y_array, pred_array, prob_array=None, buffer_px=3,
-                 ignore_index=255):
+                 ignore_index=255, min_area_px=None):
         # Ignored index
         self.ignore_index = ignore_index
         
@@ -30,18 +32,23 @@ class RelaxedMetricCalculator:
         # Y true array
         self.y_array = y_array
         
-        # Mask (pixels not ignored)
+        # Mask (valid pixels)
         self.mask = (self.y_array != ignore_index)
         
         # Probabilities predicted array
         self.prob_array = prob_array
 
         # Predictions array (class 0 or 1)
+        if min_area_px:
+            pred_array = self._remove_small_areas(pred_array, min_area_px)
+        
         self.pred_array = pred_array
         
-        # Buffer y and pred array
+        # Buffer and filter y and pred array 
         self.buffer_y_array = self._buffer_array(array=self.y_array, buffer_px=self.buffer_px)
         self.buffer_pred_array = self._buffer_array(array=self.pred_array, buffer_px=self.buffer_px)
+        self.buffer_y_array = self.buffer_y_array[self.mask]
+        self.buffer_pred_array = self.buffer_pred_array[self.mask]
         
         # Filter (and flatten) pred array and y_array with mask
         self.pred_array = self.pred_array[self.mask]
@@ -51,15 +58,22 @@ class RelaxedMetricCalculator:
         self.metrics = None
         
         # Metrics (precision and recall) and thresholds lists computed in average precision
-        self.ap_lists = {}        
+        self.ap_lists = {}
         
+    def _remove_small_areas(self, array, min_area_px=69):
+        masked_array = array * self.mask
+        masked_array_filtered = morphology.remove_small_objects(masked_array, min_area_px, connectivity=1)
+        # Return with the ignored indexes in case it exists
+        if self.ignore_index in array:
+            masked_array_filtered[~self.mask] = self.ignore_index 
+        
+        return masked_array_filtered        
+
     def _buffer_array(self, array, buffer_px):
         # The buffer is made on a masked array without the ignored index
         # (To the ignored index not affect the buffer)
-        # Then the ignored index pixels are removed filtering the pixels in the mask
         masked_array = array * self.mask
         masked_array_buffer = buffer_patches_array(masked_array, radius_px=buffer_px)
-        masked_array_buffer = masked_array_buffer[self.mask]
         
         return masked_array_buffer        
         
@@ -100,6 +114,7 @@ class RelaxedMetricCalculator:
         
         return metrics
     
+    # TODO: Insert the minimum area as optional in calculating average precision
     def _calculate_avg_precision(self, print_interval, interpolated):
         ''' Calculate Thresholds '''
         # Flatten probabilities prediction array and mask it with non-ignored values
@@ -112,7 +127,7 @@ class RelaxedMetricCalculator:
         # Calculate Thresholds using threshold indexes, which are the change indexes plus the final element index
         # Change indexes are the diff indexes where probability difference with next probability > 0  
         diff_scores = np.diff(prob_flat)
-        change_idxs = np.where(diff_scores)[0]
+        change_idxs = np.where(diff_scores)[0]        
         threshold_idxs = np.r_[change_idxs, prob_flat.size - 1]
         thresholds = prob_flat[threshold_idxs]
         
@@ -145,6 +160,7 @@ class RelaxedMetricCalculator:
             
             # Buffer for prediction
             pred_buffer = self._buffer_array(array=pred, buffer_px=self.buffer_px)
+            pred_buffer = pred_buffer[self.mask]
             
             # True Positive for Recall
             true_positive_relaxed_recall = (self.y_array * pred_buffer).sum()

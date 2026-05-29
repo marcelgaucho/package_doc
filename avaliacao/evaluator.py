@@ -202,7 +202,8 @@ class ModelEvaluator:
         if export_prob_mosaics:
             mosaics.export_mosaics(prefix=prefix+'_prob_')
         
-    def evaluate_mosaics(self, buffers_px=[3], include_avg_precision=False):
+    def evaluate_mosaics(self, buffers_px=[3], include_avg_precision=False,
+                         min_area_px=None):
         # Load probabilities and prediction for mosaics
         if include_avg_precision:
             prob_mosaics = np.load(self.output_dir / 'prob_mosaics.npy')
@@ -213,6 +214,6 @@ class ModelEvaluator:
         
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
-            metric_calculator = RelaxedMetricCalculator(y_array=self.y_mosaics, pred_array=pred_mosaics, buffer_px=buffer_px, prob_array=prob_mosaics)
+            metric_calculator = RelaxedMetricCalculator(y_array=self.y_mosaics, pred_array=pred_mosaics, buffer_px=buffer_px, prob_array=prob_mosaics, min_area_px=min_area_px)
             metric_calculator.calculate_metrics(include_avg_precision=include_avg_precision)
             metric_calculator.export_results(output_dir=self.output_dir, group='mosaics')  
