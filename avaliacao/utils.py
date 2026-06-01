@@ -65,11 +65,17 @@ def remove_small_areas(array: np.ndarray, min_area_px: int, ignore_index: int=25
     
     cleaned_array = np.zeros_like(array)
     
+    # Define padding with min area (for edge objects)
+    pad_size = min_area_px
+    pad_width = ((pad_size, pad_size), (pad_size, pad_size))
+    
     # Removes areas with a loop
     for b in range(array.shape[0]):
         img_slice = masked_array[b, :, :, 0]
+        img_slice = np.pad(img_slice, pad_width=pad_width, mode='symmetric') # pad slice
         
         cleaned_slice = morphology.area_opening(img_slice, min_area_px, connectivity=1)
+        cleaned_slice = cleaned_slice[pad_size:-pad_size, pad_size:-pad_size] # crop back
         
         cleaned_array[b, :, :, 0] = cleaned_slice
         
