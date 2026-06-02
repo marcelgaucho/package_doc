@@ -56,7 +56,7 @@ def stack_uneven(arrays, fill_value=0):
 
 # %% Function to remove small areas from an array
 
-def remove_small_areas(array: np.ndarray, min_area_px: int, ignore_index: int=255) -> np.ndarray:
+def ignore_small_areas(array: np.ndarray, min_area_px: int, ignore_index: int=255) -> np.ndarray:
     if len(array.shape) != 4 or array.shape[-1] != 1:
         raise ValueError('Array shape must be in [B, H, W, 1] format.')
     
@@ -69,54 +69,22 @@ def remove_small_areas(array: np.ndarray, min_area_px: int, ignore_index: int=25
     pad_size = min_area_px
     pad_width = ((pad_size, pad_size), (pad_size, pad_size))
     
-    # Removes areas with a loop
+    # Remove and ignore areas with a loop
     for b in range(array.shape[0]):
         img_slice = masked_array[b, :, :, 0]
-        img_slice = np.pad(img_slice, pad_width=pad_width, mode='symmetric') # pad slice
+        padded_slice = np.pad(img_slice, pad_width=pad_width, mode='symmetric') # pad slice
         
-        cleaned_slice = morphology.area_opening(img_slice, min_area_px, connectivity=1)
+        cleaned_slice = morphology.area_opening(padded_slice, min_area_px, connectivity=1)
         cleaned_slice = cleaned_slice[pad_size:-pad_size, pad_size:-pad_size] # crop back
         
+        removed_pixels = (img_slice == 1) & (cleaned_slice == 0) # removed pixels 
+       
+        # Ignore small areas
         cleaned_array[b, :, :, 0] = cleaned_slice
+        cleaned_array[b, :, :, 0][removed_pixels] = ignore_index        
         
     # Return ignore index to array
-    cleaned_array[~(array != ignore_index)] = ignore_index
+    cleaned_array[array == ignore_index] = ignore_index
         
     return cleaned_array 
 
-# %% Function to remove small areas from an array
-
-def remove_small_areas_generic(
-    array: np.ndarray, 
-    min_area_px: int, 
-    ignore_index: int = 255, 
-    background_index: int = 0
-) -> np.ndarray:
-    if len(array.shape) != 4 or array.shape[-1] != 1:
-        raise ValueError('Array shape must be in [B, H, W, 1] format.')
-    
-    # Start with a clean copy of the original array.
-    # This ensures ignore_index and all valid classes are preserved by default.
-    cleaned_array = array.copy()
-    
-    # Find all unique classes that are NOT the background or the ignore index
-    unique_classes = np.unique(array)
-    unique_classes = unique_classes[(unique_classes != ignore_index) & (unique_classes != background_index)]
-    
-    for b in range(array.shape[0]):
-        img_slice = array[b, :, :, 0]
-        
-        for cls in unique_classes:
-            # 1. Isolate ONLY the pixels belonging to the current class
-            class_mask = (img_slice == cls)
-            
-            # 2. Find connected components of this class and remove small ones
-            cleaned_mask = morphology.area_opening(class_mask, min_area_px, connectivity=1)
-            
-            # 3. Identify exactly which pixels were removed
-            removed_pixels = class_mask & ~cleaned_mask
-            
-            # 4. Safely turn ONLY those removed pixels into the designated background
-            cleaned_array[b, :, :, 0][removed_pixels] = background_index
-            
-    return cleaned_array

@@ -13,7 +13,7 @@ from sklearn.utils.extmath import stable_cumsum
 import json, pickle, warnings
 
 from .buffer_function import buffer_patches_array
-from .utils import remove_small_areas
+from .utils import ignore_small_areas
 
 from skimage import morphology
 
@@ -30,7 +30,8 @@ class RelaxedMetricCalculator:
         
         self.y_array = y_array
         self.prob_array = prob_array
-        self.mask = (self.y_array != ignore_index)
+        self.mask_ytrue = (self.y_array != ignore_index)
+        self.mask = (self.y_array != ignore_index) & (pred_array != ignore_index)
         
         self.pred_array = pred_array
         
@@ -118,9 +119,10 @@ class RelaxedMetricCalculator:
             
             # 2. Dynamically remove small areas
             if self.min_area_px:
-                pred = remove_small_areas(pred, self.min_area_px, self.ignore_index)
+                pred = ignore_small_areas(pred, self.min_area_px, self.ignore_index)
             
             # 3. Recall Calculation (Requires buffering the filtered prediction)
+            # TODO: small ignored areas must "sum" with other ignored areas in the mask
             pred_buffer = self._buffer_array(pred)[self.mask]
             true_pos_rec = (self.y_array * pred_buffer).sum()
             cumtp_thres_recall.append(true_pos_rec)        

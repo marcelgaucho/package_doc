@@ -24,7 +24,7 @@ from ..treinamento.model_trainer import ModelTrainer
 
 from .metric_calculator import RelaxedMetricCalculator
 from .mosaics import MosaicGenerator
-from .utils import stack_uneven, remove_small_areas
+from .utils import stack_uneven, ignore_small_areas
 
 # %%
 
@@ -132,7 +132,7 @@ class ModelEvaluator:
                 mosaics.mosaics[self.y_mosaics == ignore_index] = ignore_index                
             if min_area_px and file_prefix == 'pred':
                 print(f'Area elements smaller than {min_area_px} px will be removed')
-                mosaics.mosaics = remove_small_areas(mosaics.mosaics, 
+                mosaics.mosaics = ignore_small_areas(mosaics.mosaics, 
                                                      min_area_px=min_area_px,
                                                      ignore_index=ignore_index)                
             mosaics.save_mosaics(prefix=file_prefix)
