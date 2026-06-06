@@ -78,7 +78,8 @@ from package_doc.treinamento.model_trainer import ModelTrainer
 from package_doc.treinamento.metrics import MaskedPrecision, MaskedRecall, MaskedF1Score
 from package_doc.treinamento.arquiteturas.models import build_model
 from package_doc.treinamento.arquiteturas.unetr_2d_dict import config_dict
-from package_doc.treinamento.custom_loss import (masked_weighted_cce, masked_cce, custom_entropy_loss, custom_add_entropy_loss,
+from package_doc.treinamento.custom_loss import (masked_weighted_cce, masked_cce, custom_entropy_loss, 
+                                                 custom_add_entropy_loss,
                                                  custom_offset_entropy_loss)
 
 # %% Loss Function

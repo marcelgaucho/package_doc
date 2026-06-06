@@ -17,8 +17,8 @@ import tensorflow as tf
 from tensorflow.keras.metrics import Precision, Recall
 from .metrics import CustomF1Score
 from .lr_decay import StepDecay, ConstantLR, LRStrategy
-# from .training_loop import train_model_loop
-from .training_loop_uce import train_model_loop
+from .training_loop import train_model_loop
+# from .training_loop_uce import train_model_loop
 from .utils import show_training_plot
 from .fine_tuning import FineTuneStrategy
 
@@ -45,7 +45,7 @@ class ModelTrainer:
     def train_with_loop(self, epochs=2000, early_stopping_epochs=50, 
                         metrics_train=None, metrics_val=None,
                         learning_rate=0.001, loss_fn=None,
-                        buffer_shuffle=None, batch_size=16, data_augmentation=False,
+                        buffer_shuffle=None, batch_size=16, data_augmentation=True,
                         mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None, 
                         entropy_dir=None):
         

@@ -42,7 +42,8 @@ class UncertaintyCalculator:
         entropy = -np.sum(prob_ensemble * np.log2(prob_ensemble + epsilon), axis=-1, keepdims=True)
         
         if self.scale_result:
-            entropy_scaled = scale_array(entropy, min_target_scale=min_target_scale, max_target_scale=max_target_scale,
+            entropy_scaled = scale_array(entropy, min_target_scale=min_target_scale, 
+                                         max_target_scale=max_target_scale,
                                          perc_cut=perc_cut)
             return entropy_scaled
         else:

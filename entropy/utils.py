@@ -47,11 +47,20 @@ class DataGroups(str, Enum):
 # %% Enumerated constant for uncertainty metrics
 
 class UncertaintyMetric(str, Enum):
-    Entropy = 'entropy'
-    Surprise = 'surprise'
-    WeightedSurprise = 'weightedsurprise'
-    ProbMean = 'probmean'
+    Entropy = 'Entropy'
+    Surprise = 'Surprise'
+    WeightedSurprise = 'Weighted Surprise'
+    ProbMean = 'Probability Mean'
     
+# %%
+
+uncert_metric_method = {
+    UncertaintyMetric.Entropy: 'entropy',
+    UncertaintyMetric.Surprise: 'surprise',
+    UncertaintyMetric.WeightedSurprise: 'weighted_surprise',
+    UncertaintyMetric.ProbMean: 'prob_mean'   
+    }
+
 # %%
 
 def plot_uncertainty_histogram(data, title="Entropy Distribution", log_scale=True, save_path=None):
@@ -91,7 +100,8 @@ def plot_uncertainty_histogram(data, title="Entropy Distribution", log_scale=Tru
         plt.ylabel("Percentage of Pixels (%)")
         
     plt.title(title, fontsize=14, fontweight='bold')
-    plt.xlabel(f"Shannon Entropy (bits) \n [0 = Certain, 1 = Maximum Uncertainty] \n bins = {nbins} ")
+    # plt.xlabel(f"Shannon Entropy (bits) \n [0 = Certain, 1 = Maximum Uncertainty] \n bins = {nbins} ")
+    plt.xlabel(f"Uncertainty \n bins = {nbins} ")
     plt.grid(axis='y', linestyle='--', alpha=0.5)
     
     # Adding Mean 
