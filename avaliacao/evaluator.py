@@ -24,7 +24,7 @@ from ..treinamento.model_trainer import ModelTrainer
 
 from .metric_calculator import RelaxedMetricCalculator
 from .mosaics import MosaicGenerator
-from .utils import stack_uneven, ignore_small_areas
+from .utils import stack_uneven, ignore_small_areas, load_reference_mosaics
 
 # %%
 
@@ -49,15 +49,7 @@ class ModelEvaluator:
         )
         
         # Mosaics are loaded only if the directory is provided
-        self.y_mosaics = self._load_reference_mosaics() if self.label_tiles_dir else None
-
-    def _load_reference_mosaics(self) -> np.ndarray:
-        labels_paths = sorted([
-            str(p) for p in self.label_tiles_dir.iterdir() 
-            if p.suffix in ('.tiff', '.tif')
-        ])
-        y_mosaics = [gdal.Open(path).ReadAsArray() for path in labels_paths]
-        return stack_uneven(y_mosaics)[..., np.newaxis]
+        self.y_mosaics = load_reference_mosaics(self.label_tiles_dir) if self.label_tiles_dir else None
 
     def model_predict(self, x_array: np.ndarray, batch_step: int = 2) -> tuple:
         prob = self.model.predict(x_array, batch_size=batch_step, verbose=1)
@@ -77,7 +69,7 @@ class ModelEvaluator:
             prob, pred = self.model_predict(x_array=x_array)
             
             # Cast to occupy less space
-            np.save(prob_path, prob.astype(np.float16))
+            np.save(prob_path, prob.astype(np.float32))
             np.save(pred_path, pred.astype(np.uint8))
             
             # Free memory immediately after prediction
@@ -141,8 +133,6 @@ class ModelEvaluator:
 
         _process_mosaic(pred_test, np.uint8, 'pred', export_pred_mosaics, f"{prefix}_pred_")
         _process_mosaic(prob_test, np.float32, 'prob', export_prob_mosaics, f"{prefix}_prob_")
-        
-
 
     def evaluate_mosaics(self, buffers_px: list = [3], include_avg_precision: bool = False, min_area_px: int = None):
         if self.y_mosaics is None:

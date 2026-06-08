@@ -15,7 +15,7 @@ from package_doc.treinamento.custom_loss import (masked_weighted_cce, masked_cce
                                                  custom_add_entropy_loss,
                                                  custom_offset_entropy_loss)
 from package_doc.entropy.uncertain import DataGroups
-from package_doc.entropy.utils import UncertaintyMetric, uncert_metric_method
+from package_doc.entropy.utils import UncertaintyMetric #, uncert_metric_method
 from package_doc.geral.ensemble_manager import EnsembleManager
 from package_doc.geral.utils import setup_hardware
 from package_doc.treinamento.metrics import MaskedPrecision, MaskedRecall, MaskedF1Score
@@ -64,6 +64,22 @@ def main():
         }
     )
 
+    # --- FINE TUNE ---
+    manager.fine_tune_all(
+        optimizer_class=Adam,
+        train_kwargs={
+            'epochs': 2000,
+            'early_stopping_epochs': 1,
+            'batch_size': 16,
+            'metrics_train': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
+            'metrics_val': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
+            'learning_rate': 0.0001,
+            'loss_fn': masked_cce,
+            'entropy_dir': None
+            # ... other args
+        }
+    )
+
     # --- EVALUATE ---
     manager.evaluate_all(
         label_tiles_dir='tiles_t2_preprocessed_nobuffer/test/',
@@ -91,7 +107,12 @@ def main():
             'min_target_scale': 0,
             'max_target_scale': 1,
             'perc_cut': None
-            }
+        },
+        label_tiles_dir='tiles_t2_preprocessed_nobuffer/test/',
+        info_tiles_name='info_tiles_test.json',
+        ignore_index=255,
+        export_mosaics=True,
+        generate_plot=True
     )
 
 # %%

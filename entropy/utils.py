@@ -44,22 +44,25 @@ class DataGroups(str, Enum):
     Valid = 'valid'
     Test = 'test' 
 
-# %% Enumerated constant for uncertainty metrics
 
-class UncertaintyMetric(str, Enum):
-    Entropy = 'Entropy'
-    Surprise = 'Surprise'
-    WeightedSurprise = 'Weighted Surprise'
-    ProbMean = 'Probability Mean'
-    
 # %%
 
-uncert_metric_method = {
-    UncertaintyMetric.Entropy: 'entropy',
-    UncertaintyMetric.Surprise: 'surprise',
-    UncertaintyMetric.WeightedSurprise: 'weighted_surprise',
-    UncertaintyMetric.ProbMean: 'prob_mean'   
-    }
+class UncertaintyMetric(str, Enum):
+    Entropy = 'entropy'
+    Surprise = 'surprise'
+    WeightedSurprise = 'weighted_surprise'
+    ProbMean = 'prob_mean'
+    
+    @property
+    def display_name(self) -> str:
+        """Returns a nicely formatted string for plot titles."""
+        mapping = {
+            'entropy': 'Entropy',
+            'surprise': 'Surprise',
+            'weighted_surprise': 'Weighted Surprise',
+            'prob_mean': 'Probability Mean'
+        }
+        return mapping[self.value]
 
 # %%
 

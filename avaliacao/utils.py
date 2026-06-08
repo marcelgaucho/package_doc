@@ -9,6 +9,9 @@ Created on Tue Jan  7 15:40:23 2025
 
 # %% Imports
 
+from osgeo import gdal
+from typing import Union
+from pathlib import Path
 import numpy as np
 from skimage import morphology
 
@@ -88,3 +91,20 @@ def ignore_small_areas(array: np.ndarray, min_area_px: int, ignore_index: int=25
         
     return cleaned_array 
 
+# %% Function to load reference mosaics
+
+def load_reference_mosaics(label_tiles_dir: Union[str, Path]) -> np.ndarray:
+    # Enforce Path
+    label_tiles_dir = Path(label_tiles_dir)
+    
+    # Tiles in dir
+    labels_paths = sorted([
+        str(p) for p in label_tiles_dir.iterdir() 
+        if p.suffix in ('.tiff', '.tif')
+    ])
+    
+    # Load tiles
+    y_mosaics = [gdal.Open(path).ReadAsArray() for path in labels_paths]
+    
+    # Return stacked array
+    return stack_uneven(y_mosaics)[..., np.newaxis]
