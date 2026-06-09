@@ -64,7 +64,8 @@ def train_step_uce(x_batch, y_batch, model, optimizer, metrics_train, e_batch=No
     
     # Calculate Mean and Variance
     mean_preds = tf.reduce_mean(mc_preds_stack, axis=0)
-    variance = tf.math.reduce_variance(mc_preds_stack, axis=0)
+    bessel_factor = tf.cast(mc_samples, tf.float32) / tf.cast(mc_samples - 1, tf.float32)
+    variance = tf.math.reduce_variance(mc_preds_stack, axis=0) * bessel_factor
     std_preds = tf.sqrt(variance + 1e-7) # Epsilon prevents NaN
     
     # Extract standard deviation for the predicted class

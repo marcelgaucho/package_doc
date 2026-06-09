@@ -52,6 +52,7 @@ class UncertaintyMetric(str, Enum):
     Surprise = 'surprise'
     WeightedSurprise = 'weighted_surprise'
     ProbMean = 'prob_mean'
+    StdDev = 'std_dev'
     
     @property
     def display_name(self) -> str:
@@ -60,7 +61,8 @@ class UncertaintyMetric(str, Enum):
             'entropy': 'Entropy',
             'surprise': 'Surprise',
             'weighted_surprise': 'Weighted Surprise',
-            'prob_mean': 'Probability Mean'
+            'prob_mean': 'Probability Mean',
+            'std_dev': 'Standard Deviation'
         }
         return mapping[self.value]
 

@@ -14,75 +14,73 @@ from .utils import scale_array, DataGroups
 # %%
 
 class UncertaintyCalculator:
-    def __init__(self, model_dirs: list[str], data_group: str = DataGroups.Test,
-                 scale_result=True):
+    ''' Calculate uncertainty metric for an ensemble of predicted probabilities of shape (B, H, W, 1) '''
+    def __init__(self, model_dirs: list[str], data_group: str = DataGroups.Test, scale_result=True):
         self.model_dirs = [Path(model_dir) for model_dir in model_dirs]
         self.data_group = data_group
+        self.scale_result = scale_result
+        self.epsilon = 1e-7 
         
+        # Pre-compute the mean ensemble probabilities
         self.prob_mean_ensemble = self._prob_mean_ensemble()
         
-        self.epsilon = 1e-7 # Used to manage log 0
-        
-        self.scale_result = scale_result
-        
     def _prob_mean_ensemble(self):
-        prob_ensemble = [np.load(model_dir / f'prob_{self.data_group.value}.npy') 
-                         for model_dir in self.model_dirs] # Load prob arrays in list
-        prob_ensemble = np.array(prob_ensemble) # transform list in array
-        prob_ensemble = np.concatenate((1-prob_ensemble, prob_ensemble), axis=-1) # insert the background probability
-        prob_mean_ensemble = np.mean(prob_ensemble, axis=0)
+        # Stack into shape (N_models, ..., 1)
+        probs = np.stack([
+            np.load(d / f'prob_{self.data_group.value}.npy') 
+            for d in self.model_dirs
+        ], axis=0)
         
-        return prob_mean_ensemble
-    
-    def entropy(self, min_target_scale=0, max_target_scale=1, perc_cut=None):
-        epsilon = self.epsilon
-        
-        prob_ensemble = self.prob_mean_ensemble
-        
-        entropy = -np.sum(prob_ensemble * np.log2(prob_ensemble + epsilon), axis=-1, keepdims=True)
-        
+        # Calculate mean across models: (..., 1)
+        mean_p1 = np.mean(probs, axis=0)
+        # Create full distribution: (..., 2) where [background, foreground]
+        return np.concatenate([1 - mean_p1, mean_p1], axis=-1)
+
+    def _finalize(self, values, min_scale, max_scale, perc_cut):
+        """Helper to handle the repeated scaling logic."""
         if self.scale_result:
-            entropy_scaled = scale_array(entropy, min_target_scale=min_target_scale, 
-                                         max_target_scale=max_target_scale,
-                                         perc_cut=perc_cut)
-            return entropy_scaled
-        else:
-            return entropy
+            return scale_array(
+                values, 
+                min_target_scale=min_scale, 
+                max_target_scale=max_scale, 
+                perc_cut=perc_cut
+            )
+        return values
+
+    def entropy(self, min_target_scale=0, max_target_scale=1, perc_cut=None):
+        p = self.prob_mean_ensemble
+        # H = -sum(p * log2(p))
+        entropy = -np.sum(p * np.log2(p + self.epsilon), axis=-1, keepdims=True)
+        return self._finalize(entropy, min_target_scale, max_target_scale, perc_cut)
         
     def surprise(self, min_target_scale=0, max_target_scale=1, perc_cut=None):    
-        epsilon = self.epsilon
-        
-        prob_ensemble = self.prob_mean_ensemble[..., 1:2] # Surprise is for object class (class 1)
-        
-        surprise = -np.log2(prob_ensemble + epsilon)
-        
-        if self.scale_result:
-            surprise_scaled = scale_array(surprise, min_target_scale=min_target_scale, max_target_scale=max_target_scale,
-                                          perc_cut=perc_cut)
-            return surprise_scaled
-        else:
-            return surprise
+        p1 = self.prob_mean_ensemble[..., 1:2]
+        # I(x) = -log2(P(x))
+        surprise = -np.log2(p1 + self.epsilon)
+        return self._finalize(surprise, min_target_scale, max_target_scale, perc_cut)
     
     def weighted_surprise(self, min_target_scale=0, max_target_scale=1, perc_cut=None):    
-        epsilon = self.epsilon
-        
-        prob_ensemble = self.prob_mean_ensemble[..., 1:2] # Surprise is for object class (class 1)
-
-        weighted_surprise = -prob_ensemble * np.log2(prob_ensemble + epsilon)
-        
-        if self.scale_result:
-            weighted_surprise_scaled = scale_array(weighted_surprise, min_target_scale=min_target_scale, max_target_scale=max_target_scale,
-                                                   perc_cut=perc_cut)
-            return weighted_surprise_scaled
-        else:
-            return weighted_surprise
+        p1 = self.prob_mean_ensemble[..., 1:2]
+        # Partial entropy for the object class
+        weighted = -p1 * np.log2(p1 + self.epsilon)
+        return self._finalize(weighted, min_target_scale, max_target_scale, perc_cut)
     
     def prob_mean(self, min_target_scale=0, max_target_scale=1, perc_cut=None):
-        prob_ensemble = self.prob_mean_ensemble[..., 1:2] # Probability mean is for object class (class 1)
+        p1 = self.prob_mean_ensemble[..., 1:2]
+        return self._finalize(p1, min_target_scale, max_target_scale, perc_cut)
+    
+    def std_dev(self, min_target_scale=0, max_target_scale=1, perc_cut=None):
+        # Load raw foreground probabilities: shape (N_models, B, H, W, 1)
+        probs = np.stack([
+            np.load(d / f'prob_{self.data_group.value}.npy') 
+            for d in self.model_dirs
+        ], axis=0)
         
-        if self.scale_result:
-            prob_ensemble_scaled = scale_array(prob_ensemble, min_target_scale=min_target_scale, max_target_scale=max_target_scale, 
-                                               perc_cut=perc_cut)
-            return prob_ensemble_scaled
-        else:
-            return prob_ensemble
+        # Calculate SD across the model axis. Result is (B, H, W, 1)
+        sd = np.std(probs, axis=0, ddof=1) 
+        
+        return self._finalize(sd, min_target_scale, max_target_scale, perc_cut)
+        
+        
+
+
