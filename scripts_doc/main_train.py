@@ -41,7 +41,7 @@ def main():
     ensemble_params = {
             'x_dir': 'experimentos_deforestation/x_dir/',
             'y_dir': 'experimentos_deforestation/y_dir/',
-            'base_output_dir': 'experimentos_deforestation/out_resunet_nobuffer/',
+            'base_output_dir': 'experimentos_deforestation/out_resunet_nobuffer_std/',
             'base_model': model,
             'n_models': 2
             }
@@ -58,16 +58,18 @@ def main():
             'metrics_train': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
             'metrics_val': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
             'learning_rate': 0.0001,
-            'loss_fn': masked_cce,
-            'entropy_dir': None
+            'loss_fn': custom_offset_entropy_loss,
+            'uncertainty_dir': 'experimentos_deforestation/out_resunet_nobuffer/uncertainty/',
+            'uncertainty_metric': UncertaintyMetric.StdDev
             # ... other args
         }
     )
 
     # --- FINE TUNE ---
+    '''
     manager.fine_tune_all(
         optimizer_class=Adam,
-        train_kwargs={
+        fine_tune_kwargs={
             'epochs': 2000,
             'early_stopping_epochs': 1,
             'batch_size': 16,
@@ -75,15 +77,17 @@ def main():
             'metrics_val': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
             'learning_rate': 0.0001,
             'loss_fn': masked_cce,
-            'entropy_dir': None
+            'uncertainty_dir': None,
+            'uncertainty_metric': UncertaintyMetric.StdDev
             # ... other args
         }
     )
+    '''
 
     # --- EVALUATE ---
     manager.evaluate_all(
         label_tiles_dir='tiles_t2_preprocessed_nobuffer/test/',
-        eval_kwargs={'splits': ['train', 'valid', 'test'],
+        eval_kwargs={'splits': ['valid', 'test'],
                      'buffers_px': [0],
                      'include_avg_precision': False
                      },
@@ -102,7 +106,7 @@ def main():
     manager.calculate_uncertainty(
         data_groups=[DataGroups.Train, DataGroups.Valid, DataGroups.Test],
         scale_result=True,
-        metric=UncertaintyMetric.Entropy,
+        metric=UncertaintyMetric.StdDev,
         metric_kwargs={
             'min_target_scale': 0,
             'max_target_scale': 1,

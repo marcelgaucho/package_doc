@@ -21,6 +21,7 @@ from .training_loop import train_model_loop
 # from .training_loop_uce import train_model_loop
 from .utils import show_training_plot
 from .fine_tuning import FineTuneStrategy
+from ..entropy.utils import UncertaintyMetric #, uncert_metric_method
 
 # %%
 
@@ -47,7 +48,7 @@ class ModelTrainer:
                         learning_rate=0.001, loss_fn=None,
                         buffer_shuffle=None, batch_size=16, data_augmentation=True,
                         mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None, 
-                        entropy_dir=None):
+                        uncertainty_dir=None, uncertainty_metric=UncertaintyMetric.Entropy):
         
         # Handle mutable defaults safely
         metrics_train = metrics_train or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
@@ -72,7 +73,8 @@ class ModelTrainer:
             batch_size //= augment_batch_factor
 
         # 1. Pipeline Stage: Build and structure Datasets
-        train_dataset, valid_dataset = self._prepare_datasets(entropy_dir, batch_size, buffer_shuffle)
+        train_dataset, valid_dataset = self._prepare_datasets(uncertainty_dir, batch_size, buffer_shuffle,
+                                                              uncertainty_metric)
 
         # 2. Pipeline Stage: Configure Schedulers and Optimizer
         optimizer = self._configure_optimizer(model, learning_rate, lr_strategy, train_dataset, batch_size)
@@ -105,7 +107,7 @@ class ModelTrainer:
                   metrics_train=None, metrics_val=None, loss_fn=None,
                   buffer_shuffle=None, batch_size=16, data_augmentation=False,
                   mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None,
-                  entropy_dir=None):
+                  uncertainty_dir=None, uncertainty_metric=UncertaintyMetric.Entropy):
         """Phase 2 execution using an interchangeable FineTuneStrategy configuration."""
         
         metrics_train = metrics_train or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
@@ -133,7 +135,8 @@ class ModelTrainer:
             batch_size //= augment_batch_factor
 
         # 3. Reuse your clean internal pipeline helpers
-        train_dataset, valid_dataset = self._prepare_datasets(entropy_dir, batch_size, buffer_shuffle)
+        train_dataset, valid_dataset = self._prepare_datasets(uncertainty_dir, batch_size, buffer_shuffle,
+                                                              uncertainty_metric)
         
         # 4. Configure optimizer using strategy's custom micro-learning rate
         optimizer = self._configure_optimizer(
@@ -163,17 +166,17 @@ class ModelTrainer:
         
         return result_history
 
-    def _prepare_datasets(self, entropy_dir, batch_size, buffer_shuffle):
+    def _prepare_datasets(self, uncertainty_dir, batch_size, buffer_shuffle, uncertainty_metric):
         """Internal helper to load, combine weights, shuffle, and batch tf.data pipelines."""
         train_ds = tf.data.Dataset.load(str(self.x_dir / 'train_dataset/'))
         valid_ds = tf.data.Dataset.load(str(self.x_dir / 'valid_dataset/'))
 
-        if entropy_dir:
-            entropy_train = np.load(Path(entropy_dir) / 'entropy_train.npy')
-            entropy_valid = np.load(Path(entropy_dir) / 'entropy_valid.npy')
+        if uncertainty_dir:
+            uncertainty_train = np.load(Path(uncertainty_dir) / f'{uncertainty_metric.value}_train.npy')
+            uncertainty_valid = np.load(Path(uncertainty_dir) / f'{uncertainty_metric.value}_valid.npy')
             
-            weights_train = tf.data.Dataset.from_tensor_slices(entropy_train)
-            weights_valid = tf.data.Dataset.from_tensor_slices(entropy_valid)
+            weights_train = tf.data.Dataset.from_tensor_slices(uncertainty_train)
+            weights_valid = tf.data.Dataset.from_tensor_slices(uncertainty_valid)
             
             train_ds = tf.data.Dataset.zip((train_ds, weights_train)).map(lambda xy, w: (xy[0], xy[1], w))
             valid_ds = tf.data.Dataset.zip((valid_ds, weights_valid)).map(lambda xy, w: (xy[0], xy[1], w))
