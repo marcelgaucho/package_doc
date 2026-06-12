@@ -15,6 +15,8 @@ from pathlib import Path
 import numpy as np
 from enum import Enum
 
+from .ensemble_config import EnsembleConfig
+
 from ..entropy.utils import plot_uncertainty_histogram
 from ..entropy.utils import UncertaintyMetric
 from ..avaliacao.mosaics import MosaicGenerator
@@ -32,7 +34,8 @@ from ..entropy.uncertain import UncertaintyCalculator
 class EnsembleManager:
     """Orchestrates training, fine-tuning, evaluation, and uncertainty calculation for an ensemble."""
     
-    def __init__(self, x_dir: str, y_dir: str, base_output_dir: str, base_model: tf.keras.Model, 
+    def __init__(self, x_dir: str, y_dir: str, base_output_dir: str, 
+                 base_model: tf.keras.Model, 
                  n_models: int = 5):
         self.x_dir = Path(x_dir)
         self.y_dir = Path(y_dir)
@@ -56,21 +59,22 @@ class EnsembleManager:
             # Rebuild optimizer for each iteration to refresh internal variables
             optimizer = optimizer_class()
             
-            trainer = ModelTrainer(x_dir=self.x_dir, output_dir=out_dir, model=self.base_model, 
-                                   optimizer=optimizer)
+            trainer = ModelTrainer(x_dir=self.x_dir, output_dir=out_dir,  
+                                   optimizer=optimizer, model=self.base_model)
             trainer.train_with_loop(**train_kwargs)
 
-    def fine_tune_all(self, optimizer_class, strategy, fine_tune_kwargs):
+    def fine_tune_all(self, optimizer_class, strategy, 
+                      base_models_dir, fine_tune_kwargs):
         """Loops through and fine-tunes all models from existing weights."""
         for i, out_dir in enumerate(self._get_model_dirs()):
             out_dir.mkdir(parents=True, exist_ok=True)
-            model_path = out_dir / 'best_model.keras' # Assuming tuning in place or specify a source_dir
+            base_model_path = Path(base_models_dir) / out_dir.name / 'best_model.keras' # Assuming tuning in place or specify a source_dir
             
             print(f"--- Fine-Tuning Model {i+1}/{self.n_models} ---")
             
-            trainer = ModelTrainer(x_dir=self.x_dir, output_dir=out_dir, model=self.base_model, 
-                                   optimizer=optimizer_class())
-            trainer.fine_tune(model_path=model_path, strategy=strategy, **fine_tune_kwargs)
+            trainer = ModelTrainer(x_dir=self.x_dir, output_dir=out_dir,
+                                   optimizer=optimizer_class(), model=None)
+            trainer.fine_tune(base_model_path, strategy, **fine_tune_kwargs)
 
     def evaluate_all(self, label_tiles_dir, eval_kwargs, mosaic_kwargs, eval_mosaic_kwargs):
         """Evaluates all trained models."""

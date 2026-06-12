@@ -12,6 +12,7 @@ import time
 import pickle
 import types
 from pathlib import Path
+from typing import Optional
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Precision, Recall
@@ -29,7 +30,7 @@ class ModelTrainer:
     best_model_filename = 'best_model.keras'
     early_stopping_delta = 0.001
 
-    def __init__(self, x_dir: str, output_dir: str, model, optimizer):
+    def __init__(self, x_dir: str, output_dir: str, optimizer, model=None):
         # Configuration Paths 
         self.x_dir = Path(x_dir)
         self.output_dir = Path(output_dir)
@@ -103,7 +104,7 @@ class ModelTrainer:
         
         return result_history
     
-    def fine_tune(self, model_path, strategy: FineTuneStrategy, epochs=1000, early_stopping_epochs=30,
+    def fine_tune(self, base_model_path, strategy: FineTuneStrategy, epochs=1000, early_stopping_epochs=30,
                   metrics_train=None, metrics_val=None, loss_fn=None,
                   buffer_shuffle=None, batch_size=16, data_augmentation=False,
                   mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None,
@@ -123,8 +124,8 @@ class ModelTrainer:
         start_time = time.time()
 
         # 1. Load the actual trained model weights from Phase 1 instead of cloning an empty skeleton
-        print(f"Loading best baseline model weights from {model_path}...")
-        model = tf.keras.models.load_model(model_path)
+        print(f"Loading best baseline model weights from {base_model_path}...")
+        model = tf.keras.models.load_model(base_model_path)
 
         # 2. Apply Strategy to alter layer states (freezing/unfreezing logic)
         model = strategy.apply(model)

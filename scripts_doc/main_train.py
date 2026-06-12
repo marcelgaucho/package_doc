@@ -18,7 +18,10 @@ from package_doc.entropy.uncertain import DataGroups
 from package_doc.entropy.utils import UncertaintyMetric #, uncert_metric_method
 from package_doc.geral.ensemble_manager import EnsembleManager
 from package_doc.geral.utils import setup_hardware
+from package_doc.geral.ensemble_config import EnsembleConfig
 from package_doc.treinamento.metrics import MaskedPrecision, MaskedRecall, MaskedF1Score
+from package_doc.treinamento.fine_tuning import LayerIndexStrategy
+
 
 
 # %%
@@ -41,12 +44,12 @@ def main():
     ensemble_params = {
             'x_dir': 'experimentos_deforestation/x_dir/',
             'y_dir': 'experimentos_deforestation/y_dir/',
-            'base_output_dir': 'experimentos_deforestation/out_resunet_nobuffer_std/',
+            'base_output_dir': 'experimentos_deforestation/out_resunet_nobuffer_teste/',
             'base_model': model,
             'n_models': 2
             }
     manager = EnsembleManager(**ensemble_params)
-
+    
     # 3. Execute Pipeline Steps cleanly
     # --- TRAIN ---
     manager.train_all(
@@ -64,26 +67,27 @@ def main():
             # ... other args
         }
     )
-
+    
     # --- FINE TUNE ---
-    '''
+    strategy = LayerIndexStrategy(fine_tune_at=31, 
+                                  learning_rate=1e-5)
     manager.fine_tune_all(
         optimizer_class=Adam,
+        strategy=strategy,
+        base_models_dir='experimentos_deforestation/out_resunet_nobuffer/',
         fine_tune_kwargs={
             'epochs': 2000,
             'early_stopping_epochs': 1,
             'batch_size': 16,
             'metrics_train': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
             'metrics_val': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-            'learning_rate': 0.0001,
             'loss_fn': masked_cce,
             'uncertainty_dir': None,
             'uncertainty_metric': UncertaintyMetric.StdDev
             # ... other args
         }
     )
-    '''
-
+    
     # --- EVALUATE ---
     manager.evaluate_all(
         label_tiles_dir='tiles_t2_preprocessed_nobuffer/test/',
