@@ -7,6 +7,7 @@ Created on Tue Jun  2 12:53:52 2026
 
 # %% Import Libraries
 
+import copy
 import numpy as np
 from skimage import morphology
 
@@ -83,3 +84,25 @@ def remove_small_areas_generic(
             cleaned_array[b, :, :, 0][removed_pixels] = background_index
             
     return cleaned_array
+
+# %% Function to merge dicts with preference to the second dict
+
+def merge_dicts_with_preference(dict1: dict, dict2: dict) -> dict:
+    """
+    Merge two dicts with preference to the second (dict2) in case of duplicate keys.
+    If the duplicated key has inner dict as value, they will be merged maintaining the preference.
+    """
+    # Create a copy to not modify original data
+    result = copy.deepcopy(dict1)
+    
+    # Loops through second dict to apply preference
+    for key, value2 in dict2.items():
+        # If the key exists in both dictionaries and the value of both is a dictionary, 
+        # merge the contents inside
+        if key in result and isinstance(result[key], dict) and isinstance(value2, dict):
+            result[key] = result[key] | value2
+        else:
+            # Else, dict2 value overwrites dict1 value (or appends to it)
+            result[key] = copy.deepcopy(value2)
+            
+    return result

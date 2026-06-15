@@ -1,0 +1,38 @@
+x_dir: "experimentos_deforestation/x_dir/"
+y_dir: "experimentos_deforestation/y_dir/"
+base_models_dir: "experimentos_deforestation/out_resunet_nobuffer/"
+
+model_params:
+  input_shape: [64, 64, 14]
+  n_classes: 2
+  model_type: "resunet"
+
+eval_kwargs:
+  label_tiles_dir: 'tiles_t2_preprocessed_nobuffer/test/'
+  splits: ['valid', 'test']
+  buffers_px: [0]
+  include_avg_precision: False
+
+mosaic_kwargs:
+  export_pred_mosaics: False
+  export_prob_mosaics: False
+  ignore_index: 255
+  min_area_px: 69
+
+eval_mosaic_kwargs:
+  buffers_px: [0]
+  include_avg_precision: False
+  min_area_px: 69
+
+uncertainty_kwargs:
+  data_groups: ['Train', 'Valid', 'Test']
+  scale_result: True
+  metric_kwargs:
+    min_target_scale: 0
+    max_target_scale: 1
+    perc_cut: null
+  label_tiles_dir: 'tiles_t2_preprocessed_nobuffer/test/'
+  info_tiles_name: 'info_tiles_test.json'
+  ignore_index: 255
+  export_mosaics: True
+  generate_plot: True

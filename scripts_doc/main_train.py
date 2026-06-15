@@ -30,98 +30,63 @@ def main():
     # 0. Setup hardware
     setup_hardware(cpu_threads=1, gpu_memory_limit=20480)
     
-    # 1. Build the model
-    model_params = {
-        'input_shape': (64, 64, 14),
-        'n_classes': 2,
-        'model_type': 'resunet',
-        'config_dict': config_dict,
-        'dropout_rate': 0
-        }
+    # 1. Load the merged configuration
+    config = EnsembleConfig.from_yaml('package_doc/exp_config/experiment_01.yaml', 
+                                      'package_doc/exp_config/base_config.yaml')
+    
+    # 2. Build the model (injecting the non-YAML python config_dict)
+    model_params = config.model_params.copy()
+    model_params['config_dict'] = config_dict
     model = build_model(**model_params)
     
-    # 2. Initialize the Orchestrator
-    ensemble_params = {
-            'x_dir': 'experimentos_deforestation/x_dir/',
-            'y_dir': 'experimentos_deforestation/y_dir/',
-            'base_output_dir': 'experimentos_deforestation/out_resunet_nobuffer_teste/',
-            'base_model': model,
-            'n_models': 2
-            }
-    manager = EnsembleManager(**ensemble_params)
-    
-    # 3. Execute Pipeline Steps cleanly
-    # --- TRAIN ---
-    manager.train_all(
-        optimizer_class=Adam,
-        train_kwargs={
-            'epochs': 2000,
-            'early_stopping_epochs': 1,
-            'batch_size': 16,
-            'metrics_train': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-            'metrics_val': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-            'learning_rate': 0.0001,
-            'loss_fn': custom_offset_entropy_loss,
-            'uncertainty_dir': 'experimentos_deforestation/out_resunet_nobuffer/uncertainty/',
-            'uncertainty_metric': UncertaintyMetric.StdDev
-            # ... other args
-        }
+    # 3. Initialize the Orchestrator
+    manager = EnsembleManager(
+        x_dir=config.x_dir,
+        y_dir=config.y_dir,
+        base_output_dir=str(config.base_output_dir),
+        base_model=model,
+        n_models=config.n_models
     )
     
+    # Define metrics globally so we only instantiate them once
+    eval_metrics = [MaskedF1Score(), MaskedPrecision(), MaskedRecall()]
+    
+    # --- TRAIN ---
+    train_kwargs = config.train_kwargs.copy()
+    train_kwargs.update({'metrics_train': eval_metrics, 'metrics_val': eval_metrics})
+    manager.train_all(optimizer_class=Adam, train_kwargs=train_kwargs)
+    
     # --- FINE TUNE ---
-    strategy = LayerIndexStrategy(fine_tune_at=31, 
-                                  learning_rate=1e-5)
+    fine_tune_kwargs = config.fine_tune_kwargs.copy()
+    
+    # Pop strategy variables out of the dictionary before passing it to train_loop
+    strategy = LayerIndexStrategy(
+        fine_tune_at=fine_tune_kwargs.pop('fine_tune_at', 31), 
+        learning_rate=fine_tune_kwargs.pop('learning_rate', 1e-5)
+    )
+    fine_tune_kwargs.update({'metrics_train': eval_metrics, 'metrics_val': eval_metrics})
+    
     manager.fine_tune_all(
         optimizer_class=Adam,
         strategy=strategy,
-        base_models_dir='experimentos_deforestation/out_resunet_nobuffer/',
-        fine_tune_kwargs={
-            'epochs': 2000,
-            'early_stopping_epochs': 1,
-            'batch_size': 16,
-            'metrics_train': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-            'metrics_val': [MaskedF1Score(), MaskedPrecision(), MaskedRecall()],
-            'loss_fn': masked_cce,
-            'uncertainty_dir': None,
-            'uncertainty_metric': UncertaintyMetric.StdDev
-            # ... other args
-        }
+        base_models_dir=config.base_models_dir,
+        fine_tune_kwargs=fine_tune_kwargs
     )
     
     # --- EVALUATE ---
+    eval_kwargs = config.eval_kwargs.copy()
+    # Pop the directory path out of kwargs since it is a direct parameter in evaluate_all
+    label_tiles_dir = eval_kwargs.pop('label_tiles_dir') 
+    
     manager.evaluate_all(
-        label_tiles_dir='tiles_t2_preprocessed_nobuffer/test/',
-        eval_kwargs={'splits': ['valid', 'test'],
-                     'buffers_px': [0],
-                     'include_avg_precision': False
-                     },
-        mosaic_kwargs={'export_pred_mosaics': False, 
-                       'export_prob_mosaics': False,
-                       'ignore_index': 255,
-                       'min_area_px': 69
-                       },
-        eval_mosaic_kwargs={'buffers_px': [0],
-                     'include_avg_precision': False,
-                     'min_area_px': 69
-                     }
+        label_tiles_dir=label_tiles_dir,
+        eval_kwargs=eval_kwargs,
+        mosaic_kwargs=config.mosaic_kwargs,
+        eval_mosaic_kwargs=config.eval_mosaic_kwargs
     )
 
     # --- UNCERTAINTY ---
-    manager.calculate_uncertainty(
-        data_groups=[DataGroups.Train, DataGroups.Valid, DataGroups.Test],
-        scale_result=True,
-        metric=UncertaintyMetric.StdDev,
-        metric_kwargs={
-            'min_target_scale': 0,
-            'max_target_scale': 1,
-            'perc_cut': None
-        },
-        label_tiles_dir='tiles_t2_preprocessed_nobuffer/test/',
-        info_tiles_name='info_tiles_test.json',
-        ignore_index=255,
-        export_mosaics=True,
-        generate_plot=True
-    )
+    manager.calculate_uncertainty(**config.uncertainty_kwargs)
 
 # %%
 
