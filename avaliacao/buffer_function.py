@@ -38,4 +38,11 @@ def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=None):
     
     return result
 
+# %%
+
+def buffer_valid_array(array: np.ndarray, valid_mask=None,
+                       buffer_px=3) -> np.ndarray:
+    if valid_mask is not None:
+        array = array * valid_mask
+    return buffer_patches_array(array, radius_px=buffer_px)  
 

@@ -12,8 +12,10 @@ from sklearn.utils.extmath import stable_cumsum
 
 import json, pickle, warnings
 
-from .buffer_function import buffer_patches_array
+from .buffer_function import buffer_patches_array, buffer_valid_array
 from .utils import ignore_small_areas
+from .metrics_calc_prec_rec_f1 import calculate_relaxed_prec_recall_f1
+from .metric_calc_avg_prec import calculate_relaxed_avg_precision
 
 from skimage import morphology
 
@@ -30,56 +32,13 @@ class RelaxedMetricCalculator:
         
         self.y_array = y_array
         self.prob_array = prob_array
-        self.mask_ytrue = (self.y_array != ignore_index)
-        self.mask = (self.y_array != ignore_index) & (pred_array != ignore_index)
+        self.mask = (self.y_array != ignore_index) # y true mask
         
         self.pred_array = pred_array
-        
-        # Buffer arrays and apply mask
-        self.buffer_y_array = self._buffer_array(self.y_array)[self.mask]
-        self.buffer_pred_array = self._buffer_array(self.pred_array)[self.mask]
-        
-        # Filter raw arrays with mask
-        self.pred_array = self.pred_array[self.mask]
-        self.y_array = self.y_array[self.mask]
         
         self.metrics = None
         self.ap_lists = {}
 
-    def _buffer_array(self, array: np.ndarray) -> np.ndarray:
-        masked_array = array * self.mask
-        return buffer_patches_array(masked_array, radius_px=self.buffer_px)        
-        
-    def _calculate_prec_recall_f1(self, value_zero_division: float = None) -> dict:
-        epsilon = 1e-7
-        
-        true_pos_prec = (self.buffer_y_array * self.pred_array).sum()
-        pred_pos = self.pred_array.sum()
-        
-        true_pos_rec = (self.y_array * self.buffer_pred_array).sum() 
-        actual_pos = self.y_array.sum()
-
-        relaxed_precision = true_pos_prec / (pred_pos + epsilon)
-        relaxed_recall = true_pos_rec / (actual_pos + epsilon)
-        
-        if pred_pos == 0:
-            warnings.warn("Predicted positives are equal to 0.")
-            if value_zero_division is not None:
-                relaxed_precision = value_zero_division
-            
-        if actual_pos == 0:
-            warnings.warn("Actual positives are equal to 0.")
-            if value_zero_division is not None:
-                relaxed_recall = value_zero_division
-        
-        relaxed_f1 = (2 * relaxed_precision * relaxed_recall) / (relaxed_precision + relaxed_recall + epsilon)
-        
-        return {
-            'relaxed_precision': relaxed_precision, 
-            'relaxed_recall': relaxed_recall, 
-            'relaxed_f1': relaxed_f1
-        }
-    
     def _calculate_avg_precision(self, print_interval: int, interpolated: bool) -> float:
         prob_flat = self.prob_array[self.mask] 
         
@@ -123,6 +82,7 @@ class RelaxedMetricCalculator:
             
             # 3. Recall Calculation (Requires buffering the filtered prediction)
             # TODO: small ignored areas must "sum" with other ignored areas in the mask
+            # mask = self.mask_ytrue & (pred != self.ignore_index)
             pred_buffer = self._buffer_array(pred)[self.mask]
             true_pos_rec = (self.y_array * pred_buffer).sum()
             cumtp_thres_recall.append(true_pos_rec)        
@@ -171,14 +131,37 @@ class RelaxedMetricCalculator:
         if include_avg_precision and self.prob_array is None:
             raise ValueError("prob_array must be set during initialization to calculate average precision.")
         
-        self.metrics = self._calculate_prec_recall_f1(value_zero_division)
+        # Ignore also the small areas in pred array if min_area_px is passed to object
+        if self.min_area_px:
+            mask = self.mask & (self.pred_array != self.ignore_index)
+        else:
+            mask = self.mask
         
+        # Buffer and mask arrays
+        buffer_y_array = buffer_valid_array(self.y_array, mask, self.buffer_px)[mask]
+        buffer_pred_array = buffer_valid_array(self.pred_array, mask, self.buffer_px)[mask]
+        
+        pred_array = self.pred_array[mask]
+        y_array = self.y_array[mask]
+        
+        self.metrics = calculate_relaxed_prec_recall_f1(y=y_array,
+                                                        buffer_y=buffer_y_array, 
+                                                        pred=pred_array, 
+                                                        buffer_pred=buffer_pred_array, 
+                                                        value_zero_division=value_zero_division)
+        # TODO: Complete average precision
         if include_avg_precision:
-            self.metrics['relaxed_avg_precision'] = self._calculate_avg_precision(
-                print_interval=print_interval,
-                interpolated=interpolated_avg_precision
-            )
-            
+            pass
+            # self.metrics['relaxed_avg_precision'],
+            # self.ap_lists = calculate_relaxed_avg_precision(y=y_array, 
+            #                                                 prob=self.prob_array,
+            #                                                 mask,
+            #                                                 self.buffer_px,
+                                                            
+            #                                                 print_interval=print_interval,
+            #     interpolated=interpolated_avg_precision
+            # )
+        
         return self.metrics        
         
     def export_results(self, output_dir: Path, group: str = 'test', export_ap_lists: bool = True):
