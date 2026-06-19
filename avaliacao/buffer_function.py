@@ -18,6 +18,10 @@ import cv2
 def buffer_patches_array(patches: np.ndarray, radius_px=3, print_interval=None):
     assert len(patches.shape) == 4 and patches.shape[-1] == 1, 'Patches must be in shape (B, H, W, 1)'
     
+    # Return original array if radius_px = 0
+    if radius_px == 0:
+        return patches.copy()
+    
     patches = patches.squeeze(axis=3) # Squeeze patches in last dimension (channel dimension)
     
     # Build structuring element

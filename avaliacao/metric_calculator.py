@@ -39,94 +39,9 @@ class RelaxedMetricCalculator:
         self.metrics = None
         self.ap_lists = {}
 
-    def _calculate_avg_precision(self, print_interval: int, interpolated: bool) -> float:
-        prob_flat = self.prob_array[self.mask] 
-        
-        desc_score_indices = np.argsort(prob_flat, kind="mergesort")[::-1]
-        prob_flat = prob_flat[desc_score_indices]
-        
-        diff_scores = np.diff(prob_flat)
-        change_idxs = np.where(diff_scores)[0]        
-        threshold_idxs = np.r_[change_idxs, prob_flat.size - 1]
-        thresholds = prob_flat[threshold_idxs]
-        
-        # Initialize metric lists
-        cumtp_thres_recall = []     
-        cumtp_thres_prec = []
-        cumpos_thres = []
-        
-        # Standard fast-path if min_area is NOT used
-        if self.min_area_px is None:
-            buffer_y_flat = self.buffer_y_array[desc_score_indices]
-            cumtp_prec = stable_cumsum(buffer_y_flat)
-            cumtp_thres_prec = cumtp_prec[threshold_idxs]
-            cumpos_thres = threshold_idxs + 1
-        else:
-            # PERFORMANCE SAFETY: Downsample thresholds if applying spatial filters dynamically
-            if len(thresholds) > 100:
-                warnings.warn(f"Downsampling {len(thresholds)} thresholds to 100 to prevent massive execution times from spatial filtering.")
-                thresholds = np.linspace(1.0, 0.0, 100)
-    
-        actual_pos = self.y_array.sum()   
-    
-        for i, threshold in enumerate(thresholds):
-            if print_interval and i % print_interval == 0:
-                print(f'Calculating threshold {i:>6d}/{len(thresholds):>6d}')
-            
-            # 1. Base prediction for threshold
-            pred = (self.prob_array >= threshold).astype(int)
-            
-            # 2. Dynamically remove small areas
-            if self.min_area_px:
-                pred = ignore_small_areas(pred, self.min_area_px, self.ignore_index)
-            
-            # 3. Recall Calculation (Requires buffering the filtered prediction)
-            # TODO: small ignored areas must "sum" with other ignored areas in the mask
-            # mask = self.mask_ytrue & (pred != self.ignore_index)
-            pred_buffer = self._buffer_array(pred)[self.mask]
-            true_pos_rec = (self.y_array * pred_buffer).sum()
-            cumtp_thres_recall.append(true_pos_rec)        
-            
-            # 4. Precision Calculation (Requires masking the filtered prediction)
-            if self.min_area_px:
-                pred_masked = pred[self.mask]
-                pred_pos = pred_masked.sum()
-                true_pos_prec = (self.buffer_y_array * pred_masked).sum()
-                
-                cumpos_thres.append(pred_pos)
-                cumtp_thres_prec.append(true_pos_prec)
-    
-        cumtp_thres_recall = np.array(cumtp_thres_recall) 
-        
-        if self.min_area_px:
-            cumtp_thres_prec = np.array(cumtp_thres_prec)
-            cumpos_thres = np.array(cumpos_thres)
-        
-        # Calculate Precision
-        precision = np.zeros_like(cumtp_thres_prec, dtype=float)
-        np.divide(cumtp_thres_prec, cumpos_thres, out=precision, where=(cumpos_thres != 0))
-        
-        precision = np.hstack((precision[::-1], 1))
-        if interpolated:
-            precision = np.maximum.accumulate(precision)            
-            
-        self.ap_lists['precision'] = precision 
-        
-        # Calculate Recall
-        if actual_pos == 0:
-            print("No positive class found in y_true, recall is set to 1 for all thresholds.")
-            recall = np.ones_like(precision)
-        else:
-            recall = cumtp_thres_recall / actual_pos
-            
-        recall = np.hstack((recall[::-1], 0))
-        self.ap_lists['recall'] = recall
-        self.ap_lists['thresholds'] = thresholds[::-1] 
-    
-        return np.sum(-np.diff(recall) * precision[:-1]) 
-    
     def calculate_metrics(self, value_zero_division: float = None, include_avg_precision: bool = False, 
-                          print_interval: int = 200, interpolated_avg_precision: bool = True) -> dict:
+                          print_interval: int = 200, interpolated_avg_precision: bool = True,
+                          include_ece: bool = False) -> dict:
         
         if include_avg_precision and self.prob_array is None:
             raise ValueError("prob_array must be set during initialization to calculate average precision.")
@@ -149,19 +64,20 @@ class RelaxedMetricCalculator:
                                                         pred=pred_array, 
                                                         buffer_pred=buffer_pred_array, 
                                                         value_zero_division=value_zero_division)
-        # TODO: Complete average precision
+        # Average precision calculus
         if include_avg_precision:
-            pass
-            # self.metrics['relaxed_avg_precision'],
-            # self.ap_lists = calculate_relaxed_avg_precision(y=y_array, 
-            #                                                 prob=self.prob_array,
-            #                                                 mask,
-            #                                                 self.buffer_px,
-                                                            
-            #                                                 print_interval=print_interval,
-            #     interpolated=interpolated_avg_precision
-            # )
+            self.metrics['relaxed_avg_precision'], \
+            self.ap_lists = calculate_relaxed_avg_precision(y=self.y_array, 
+                                                            prob=self.prob_array,
+                                                            buffer_px=self.buffer_px,
+                                                            interpolated=interpolated_avg_precision,
+                                                            ignore_index=self.ignore_index,
+                                                            min_area_px=self.min_area_px)
         
+        if include_ece:
+            self.metrics['ece'] = ...
+            
+       
         return self.metrics        
         
     def export_results(self, output_dir: Path, group: str = 'test', export_ap_lists: bool = True):
