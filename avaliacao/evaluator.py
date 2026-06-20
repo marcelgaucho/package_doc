@@ -57,7 +57,8 @@ class ModelEvaluator:
         prob = prob[..., 1:2]  # Only road probabilities (Class 1)
         return prob, pred
 
-    def _evaluate_split(self, split_name: str, buffers_px: list, include_avg_precision: bool):
+    def _evaluate_split(self, split_name: str, buffers_px: list, include_avg_precision: bool,
+                        include_ece: bool):
         """Generic method to evaluate any data split, reducing code duplication."""
         prob_path = self.output_dir / f'prob_{split_name}.npy'
         pred_path = self.output_dir / f'pred_{split_name}.npy'
@@ -88,14 +89,17 @@ class ModelEvaluator:
                 buffer_px=buffer_px, 
                 prob_array=prob_array
             )
-            calculator.calculate_metrics(include_avg_precision=include_avg_precision)
+            calculator.calculate_metrics(include_avg_precision=include_avg_precision, 
+                                         include_ece=include_ece)
             calculator.export_results(output_dir=self.output_dir, group=split_name)
 
-    def evaluate_model(self, splits: list = ['valid', 'test'], buffers_px: list = [3], include_avg_precision: bool = False):
+    def evaluate_model(self, splits: list = ['valid', 'test'], buffers_px: list = [3], 
+                       include_avg_precision: bool = False, 
+                       include_ece: bool = False):
         """Evaluates the model on specified dataset splits."""
         for split in splits:
             if split in ['train', 'valid', 'test']:
-                self._evaluate_split(split, buffers_px, include_avg_precision)
+                self._evaluate_split(split, buffers_px, include_avg_precision, include_ece)
             else:
                 warnings.warn(f"Unknown split '{split}' ignored.")
 

@@ -8,7 +8,6 @@ Created on Fri May 29 18:38:38 2026
 # %% Import Libraries
 
 import numpy as np
-from sklearn.utils.extmath import stable_cumsum
 
 import json, pickle, warnings
 
@@ -16,6 +15,7 @@ from .buffer_function import buffer_patches_array, buffer_valid_array
 from .utils import ignore_small_areas
 from .metrics_calc_prec_rec_f1 import calculate_relaxed_prec_recall_f1
 from .metric_calc_avg_prec import calculate_relaxed_avg_precision
+from .metric_functions import calculate_binary_ece
 
 from skimage import morphology
 
@@ -41,30 +41,33 @@ class RelaxedMetricCalculator:
 
     def calculate_metrics(self, value_zero_division: float = None, include_avg_precision: bool = False, 
                           print_interval: int = 200, interpolated_avg_precision: bool = True,
-                          include_ece: bool = False) -> dict:
+                          include_ece: bool = False, ece_bins: int = 15,
+                          ece_strategy: str = 'adaptive') -> dict:
+        # Guard clause: Both AP and ECE require probabilities to be loaded
+        if (include_avg_precision or include_ece) and self.prob_array is None:
+            raise ValueError("prob_array must be set during initialization to "
+                             "calculate probability-based metrics.")
         
-        if include_avg_precision and self.prob_array is None:
-            raise ValueError("prob_array must be set during initialization to calculate average precision.")
-        
-        # Ignore also the small areas in pred array if min_area_px is passed to object
+        # 1. Ignore also the small areas in pred array if min_area_px is passed to object
         if self.min_area_px:
             mask = self.mask & (self.pred_array != self.ignore_index)
         else:
             mask = self.mask
         
-        # Buffer and mask arrays
+        # 2. Buffer and mask arrays for spatial metrics
         buffer_y_array = buffer_valid_array(self.y_array, mask, self.buffer_px)[mask]
         buffer_pred_array = buffer_valid_array(self.pred_array, mask, self.buffer_px)[mask]
         
         pred_array = self.pred_array[mask]
         y_array = self.y_array[mask]
         
+        # 3. Calculate Spatial F1/Precision/Recall
         self.metrics = calculate_relaxed_prec_recall_f1(y=y_array,
                                                         buffer_y=buffer_y_array, 
                                                         pred=pred_array, 
                                                         buffer_pred=buffer_pred_array, 
                                                         value_zero_division=value_zero_division)
-        # Average precision calculus
+        # 4. Calculate Average Precision
         if include_avg_precision:
             self.metrics['relaxed_avg_precision'], \
             self.ap_lists = calculate_relaxed_avg_precision(y=self.y_array, 
@@ -74,10 +77,16 @@ class RelaxedMetricCalculator:
                                                             ignore_index=self.ignore_index,
                                                             min_area_px=self.min_area_px)
         
+        # 5. Calculate Expected Calibration Error
         if include_ece:
-            self.metrics['ece'] = ...
+            # ECE uses strictly valid pixels, ignoring downstream spatial manipulation
+            base_y = self.y_array[self.mask]
+            base_prob = self.prob_array[self.mask]
+            self.metrics['ece'] = calculate_binary_ece(y_true=base_y, 
+                                                       y_prob=base_prob, 
+                                                       n_bins=ece_bins,
+                                                       strategy=ece_strategy)            
             
-       
         return self.metrics        
         
     def export_results(self, output_dir: Path, group: str = 'test', export_ap_lists: bool = True):
