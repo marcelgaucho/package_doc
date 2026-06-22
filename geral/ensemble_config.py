@@ -32,6 +32,7 @@ class EnsembleConfig:
     x_dir: str
     y_dir: str
     base_exp_dir: str
+    base_pretrained_dir: str
     experiment_name: str
     n_models: int
     
@@ -85,6 +86,7 @@ class EnsembleConfig:
             x_dir=data.get('x_dir'),
             y_dir=data.get('y_dir'),
             base_exp_dir=data.get('base_exp_dir'),
+            base_pretrained_dir=data.get('base_pretrained_dir'),
             experiment_name=data.get('experiment_name', 'default_experiment'),
             n_models=data.get('n_models', 5),
             run_training=data.get('run_training'),

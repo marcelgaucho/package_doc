@@ -15,6 +15,7 @@ train_kwargs:
   uncertainty_metric: "StdDev"
 
 run_finetune: false
+base_pretrained_dir: "experimentos_deforestation/nobuffer/resunet_standard/"
 fine_tune_kwargs:
   fine_tune_at: 31
   learning_rate: 0.00001
