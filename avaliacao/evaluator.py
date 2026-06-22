@@ -90,12 +90,14 @@ class ModelEvaluator:
                 prob_array=prob_array
             )
             calculator.calculate_metrics(include_avg_precision=include_avg_precision, 
-                                         include_ece=include_ece)
+                                         include_ece=include_ece,
+                                         ece_strategy='adaptive', # Defaulting to the equal-mass strategy
+                                         ece_bins=10)
             calculator.export_results(output_dir=self.output_dir, group=split_name)
 
     def evaluate_model(self, splits: list = ['valid', 'test'], buffers_px: list = [3], 
                        include_avg_precision: bool = False, 
-                       include_ece: bool = False):
+                       include_ece: bool = True):
         """Evaluates the model on specified dataset splits."""
         for split in splits:
             if split in ['train', 'valid', 'test']:
@@ -138,11 +140,12 @@ class ModelEvaluator:
         _process_mosaic(pred_test, np.uint8, 'pred', export_pred_mosaics, f"{prefix}_pred_")
         _process_mosaic(prob_test, np.float32, 'prob', export_prob_mosaics, f"{prefix}_prob_")
 
-    def evaluate_mosaics(self, buffers_px: list = [3], include_avg_precision: bool = False, min_area_px: int = None):
+    def evaluate_mosaics(self, buffers_px: list = [3], include_avg_precision: bool = False, min_area_px: int = None, 
+                         include_ece: bool = True):
         if self.y_mosaics is None:
             raise ValueError("Reference mosaics not loaded. Provide label_tiles_dir on initialization.")
             
-        prob_mosaics = np.load(self.output_dir / 'prob_mosaics.npy') if include_avg_precision else None
+        prob_mosaics = np.load(self.output_dir / 'prob_mosaics.npy') if include_avg_precision or include_ece else None
         pred_mosaics = np.load(self.output_dir / 'pred_mosaics.npy')
         
         for buffer_px in buffers_px:
@@ -153,5 +156,8 @@ class ModelEvaluator:
                 prob_array=prob_mosaics, 
                 min_area_px=min_area_px
             )
-            calculator.calculate_metrics(include_avg_precision=include_avg_precision)
+            calculator.calculate_metrics(include_avg_precision=include_avg_precision,
+                                         include_ece=include_ece,
+                                         ece_strategy='adaptive', # Defaulting to the equal-mass strategy
+                                         ece_bins=10)
             calculator.export_results(output_dir=self.output_dir, group='mosaics')

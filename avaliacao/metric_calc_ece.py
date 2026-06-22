@@ -109,7 +109,7 @@ if __name__ == '__main__':
     pred_probs_bin = [0.9, 0.1, 0.8, 0.4, 0.2]
     
     # %%
-    ece_bin = calculate_binary_ece(true_labels_bin, pred_probs_bin, n_bins=4, strategy='adaptive')
+    ece_bin = calculate_binary_ece(true_labels_bin, pred_probs_bin, n_bins=5, strategy='adaptive')
     print(f"Binary ECE: {ece_bin:.4f}")
 
 

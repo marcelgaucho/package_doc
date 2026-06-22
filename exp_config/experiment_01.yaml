@@ -1,18 +1,20 @@
-experiment_name: "resunet_nobuffer_finetune"
+experiment_name: "resunet_standard"
 n_models: 2
 
 model_params:
   dropout_rate: 0.0
 
+run_training: true
 train_kwargs:
   epochs: 2000
   early_stopping_epochs: 1
   batch_size: 16
   learning_rate: 0.0001
-  loss_fn: "custom_offset_entropy_loss"
-  uncertainty_dir: "experimentos_deforestation/out_resunet_nobuffer/uncertainty/"
+  loss_fn: "masked_cce"
+  uncertainty_dir: null
   uncertainty_metric: "StdDev"
 
+run_finetune: false
 fine_tune_kwargs:
   fine_tune_at: 31
   learning_rate: 0.00001
@@ -22,6 +24,9 @@ fine_tune_kwargs:
   loss_fn: "masked_cce"
   uncertainty_dir: null
   uncertainty_metric: "StdDev"
-  
+
+run_evaluation: true
+
+run_uncertainty: true
 uncertainty_kwargs:
   metric: "StdDev"

@@ -15,7 +15,7 @@ from .buffer_function import buffer_patches_array, buffer_valid_array
 from .utils import ignore_small_areas
 from .metrics_calc_prec_rec_f1 import calculate_relaxed_prec_recall_f1
 from .metric_calc_avg_prec import calculate_relaxed_avg_precision
-from .metric_functions import calculate_binary_ece
+from .metric_calc_ece import calculate_binary_ece
 
 from skimage import morphology
 

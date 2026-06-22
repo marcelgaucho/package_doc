@@ -31,9 +31,14 @@ LOSS_REGISTRY = {
 class EnsembleConfig:
     x_dir: str
     y_dir: str
-    base_models_dir: str
+    base_exp_dir: str
     experiment_name: str
     n_models: int
+    
+    run_training: bool
+    run_finetune: bool
+    run_evaluation: bool
+    run_uncertainty: bool
     
     # All configurations are now loaded as dynamic dictionaries
     model_params: dict = field(default_factory=dict)
@@ -46,7 +51,7 @@ class EnsembleConfig:
 
     @property
     def base_output_dir(self) -> Path:
-        return Path(f'experimentos_deforestation/out_{self.experiment_name}/')
+        return Path(self.base_exp_dir) / f'out_{self.experiment_name}'
 
     @classmethod
     def from_yaml(cls, experiment_yaml_path: str, base_yaml_path: str = 'base_config.yaml'):
@@ -79,9 +84,13 @@ class EnsembleConfig:
         return cls(
             x_dir=data.get('x_dir'),
             y_dir=data.get('y_dir'),
-            base_models_dir=data.get('base_models_dir'),
+            base_exp_dir=data.get('base_exp_dir'),
             experiment_name=data.get('experiment_name', 'default_experiment'),
             n_models=data.get('n_models', 5),
+            run_training=data.get('run_training'),
+            run_finetune=data.get('run_finetune'),
+            run_evaluation=data.get('run_evaluation'),
+            run_uncertainty=data.get('run_uncertainty'),
             model_params=data.get('model_params', {}),
             train_kwargs=data.get('train_kwargs', {}),
             fine_tune_kwargs=data.get('fine_tune_kwargs', {}),

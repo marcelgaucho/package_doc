@@ -1,6 +1,6 @@
 x_dir: "experimentos_deforestation/x_dir/"
 y_dir: "experimentos_deforestation/y_dir/"
-base_models_dir: "experimentos_deforestation/out_resunet_nobuffer/"
+base_exp_dir: "experimentos_deforestation/nobuffer/"
 
 model_params:
   input_shape: [64, 64, 14]

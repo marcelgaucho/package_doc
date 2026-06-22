@@ -52,41 +52,45 @@ def main():
     eval_metrics = [MaskedF1Score(), MaskedPrecision(), MaskedRecall()]
     
     # --- TRAIN ---
-    train_kwargs = config.train_kwargs.copy()
-    train_kwargs.update({'metrics_train': eval_metrics, 'metrics_val': eval_metrics})
-    manager.train_all(optimizer_class=Adam, train_kwargs=train_kwargs)
+    if config.run_training:
+        train_kwargs = config.train_kwargs.copy()
+        train_kwargs.update({'metrics_train': eval_metrics, 'metrics_val': eval_metrics})
+        manager.train_all(optimizer_class=Adam, train_kwargs=train_kwargs)
     
     # --- FINE TUNE ---
-    fine_tune_kwargs = config.fine_tune_kwargs.copy()
-    
-    # Pop strategy variables out of the dictionary before passing it to train_loop
-    strategy = LayerIndexStrategy(
-        fine_tune_at=fine_tune_kwargs.pop('fine_tune_at', 31), 
-        learning_rate=fine_tune_kwargs.pop('learning_rate', 1e-5)
-    )
-    fine_tune_kwargs.update({'metrics_train': eval_metrics, 'metrics_val': eval_metrics})
-    
-    manager.fine_tune_all(
-        optimizer_class=Adam,
-        strategy=strategy,
-        base_models_dir=config.base_models_dir,
-        fine_tune_kwargs=fine_tune_kwargs
-    )
+    if config.run_finetune:
+        fine_tune_kwargs = config.fine_tune_kwargs.copy()
+        
+        # Pop strategy variables out of the dictionary before passing it to train_loop
+        strategy = LayerIndexStrategy(
+            fine_tune_at=fine_tune_kwargs.pop('fine_tune_at', 31), 
+            learning_rate=fine_tune_kwargs.pop('learning_rate', 1e-5)
+        )
+        fine_tune_kwargs.update({'metrics_train': eval_metrics, 'metrics_val': eval_metrics})
+        
+        manager.fine_tune_all(
+            optimizer_class=Adam,
+            strategy=strategy,
+            base_models_dir=config.base_models_dir,
+            fine_tune_kwargs=fine_tune_kwargs
+        )
     
     # --- EVALUATE ---
-    eval_kwargs = config.eval_kwargs.copy()
-    # Pop the directory path out of kwargs since it is a direct parameter in evaluate_all
-    label_tiles_dir = eval_kwargs.pop('label_tiles_dir') 
-    
-    manager.evaluate_all(
-        label_tiles_dir=label_tiles_dir,
-        eval_kwargs=eval_kwargs,
-        mosaic_kwargs=config.mosaic_kwargs,
-        eval_mosaic_kwargs=config.eval_mosaic_kwargs
-    )
+    if config.run_evaluation:
+        eval_kwargs = config.eval_kwargs.copy()
+        # Pop the directory path out of kwargs since it is a direct parameter in evaluate_all
+        label_tiles_dir = eval_kwargs.pop('label_tiles_dir') 
+        
+        manager.evaluate_all(
+            label_tiles_dir=label_tiles_dir,
+            eval_kwargs=eval_kwargs,
+            mosaic_kwargs=config.mosaic_kwargs,
+            eval_mosaic_kwargs=config.eval_mosaic_kwargs
+        )
 
     # --- UNCERTAINTY ---
-    manager.calculate_uncertainty(**config.uncertainty_kwargs)
+    if config.run_uncertainty:
+        manager.calculate_uncertainty(**config.uncertainty_kwargs)
 
 # %%
 
