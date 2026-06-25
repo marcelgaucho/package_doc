@@ -343,4 +343,22 @@ def transform_augment_batch_optimized(items):
 
     return tf.vectorized_map(_apply_single_sample, items)
 
+# %% Function to parse and normalize uint8 data (divide by 255)
 
+def parse_and_normalize(*args):
+    # args can be (image, mask) OR (image, mask, weight)
+    image, mask = args[0], args[1]
+    
+    # 1. Dynamically inspect the incoming data type
+    if image.dtype == tf.uint8:
+        # Standard RGB (Massachusetts Roads): Scale 0-255 -> 0.0-1.0
+        norm_image = tf.cast(image, tf.float32) / 255.0
+        
+    else:
+        # Already float32 on disk (Deforestation dataset)
+        norm_image = tf.cast(image, tf.float32)
+    
+    # Return everything with the structure intact
+    if len(args) == 3:
+        return (norm_image, mask, args[2])
+    return (norm_image, mask)

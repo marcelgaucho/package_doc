@@ -86,7 +86,7 @@ class RoadPatchProcessor:
         self.global_max_train = np.max(maxs, axis=0)
         print(f"Global Stats - Min: {self.global_min_train}, Max: {self.global_max_train}")
         
-    def process_split(self, split_name='train', nodata_value=0):
+    def process_split(self, split_name='train', nodata_value=0, normalize=True):
         """Pass 2: Extract patches, normalize and filter."""
         if self.global_min_train is None: 
             self._find_train_global_stats(nodata_value)
@@ -124,7 +124,7 @@ class RoadPatchProcessor:
             # Filter Patches (Optional: adjust target_class/threshold based on roads)
             if split_name in ['train', 'valid']:
                 # Filter out patches with no roads if desired
-                object_indexes = IndexesFinder(y_p).object_patches(threshold=0.02, target_class=1)
+                object_indexes = IndexesFinder(y_p).object_patches(threshold=0.05, target_class=1)
                 x_p, y_p, coords = x_p[object_indexes], y_p[object_indexes], coords[object_indexes]
                 
                 # Filter out no-data patches
@@ -132,8 +132,9 @@ class RoadPatchProcessor:
                 x_p, y_p, coords = x_p[nodataless_indexes], y_p[nodataless_indexes], coords[nodataless_indexes]
             
             # Normalize Patches
-            x_p, _, _ = minmax_normalize(x_p, self.global_min_train, self.global_max_train)
-            x_p = x_p.astype(np.float16) # Float 16 is sufficient for np.uint8 data of Massachusetts dataset
+            if normalize:
+                x_p, _, _ = minmax_normalize(x_p, self.global_min_train, self.global_max_train)
+                x_p = x_p.astype(np.float16) # Float 16 is sufficient for np.uint8 data of Massachusetts dataset
             
             # Store tile info
             tile_info = {
@@ -152,7 +153,7 @@ class RoadPatchProcessor:
         return np.concatenate(x_all, axis=0), np.concatenate(y_all, axis=0)
 
     def export_info(self, out_path, split_name='test', coords_path=None):
-        self.metadata[split_name]['coords_path'] = str(coords_path) if coords_path else None
+        self.metadata[split_name]['coords_path'] = str(coords_path) 
         
         with open(out_path, 'w') as f:
             json.dump(self.metadata[split_name], f, indent=4)
@@ -191,7 +192,7 @@ class RoadPatchProcessor:
 # %%
 
 patch_size = 256
-overlap = 0.5
+overlap_train = 0
 overlap_valid = 0
 overlap_test = 0.5
 x_dir = 'experimentos_massachusetts/x_dir'
@@ -211,25 +212,25 @@ test_coords_path = y_dir / 'coords_test.npz'
 # %% --- Workflow ---
 
 root = "./dataset_massachusetts_mnih_mod/"
-patch_processor = RoadPatchProcessor(root, patch_size, overlap)
+patch_processor = RoadPatchProcessor(root, patch_size, overlap_train)
 
 # Process train
-x_train, y_train = patch_processor.process_split("train", nodata_value)
-np.save(x_dir / 'x_train.npy', x_train)
-np.save(y_dir / 'y_train.npy', y_train)
+x_train, y_train = patch_processor.process_split("train", nodata_value, normalize=False) # X train will be normalized (divided by 255) when parsed
+# np.save(x_dir / 'x_train.npy', x_train)
+# np.save(y_dir / 'y_train.npy', y_train)
 save_dataset(x_dir / 'train_dataset', x_train, onehot(y_train))
 
 # Process valid
 patch_processor.overlap = overlap_valid
-x_valid, y_valid = patch_processor.process_split("valid")
-np.save(x_dir / 'x_valid.npy', x_valid)
-np.save(y_dir / 'y_valid.npy', y_valid)
+x_valid, y_valid = patch_processor.process_split("valid", nodata_value, normalize=False) # X valid will be normalized (divided by 255) when parsed
+# np.save(x_dir / 'x_valid.npy', x_valid)
+# np.save(y_dir / 'y_valid.npy', y_valid)
 save_dataset(x_dir / 'valid_dataset', x_valid, onehot(y_valid))
 
 # Process test and export info and coords
 patch_processor.overlap = overlap_test
-x_test, y_test = patch_processor.process_split("test", preprocessed_path='tiles_t2_preprocessed/')
-np.save(x_dir / 'x_test.npy', x_test)
+x_test, y_test = patch_processor.process_split("test", nodata_value, normalize=True) # Test is already normalized
+np.save(x_dir / 'x_test.npy', x_test) 
 np.save(y_dir / 'y_test.npy', y_test)
 patch_processor.export_info(test_tileinfo_path, "test", str(test_coords_path))
 

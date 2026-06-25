@@ -18,11 +18,14 @@ import yaml
 # Import your custom losses here
 from package_doc.treinamento.custom_loss import masked_cce, custom_offset_entropy_loss
 
+from tensorflow.keras.losses import CategoricalCrossentropy
+
 # %%
 
 LOSS_REGISTRY = {
     "masked_cce": masked_cce,
-    "custom_offset_entropy_loss": custom_offset_entropy_loss
+    "custom_offset_entropy_loss": custom_offset_entropy_loss,
+    "default_cce": CategoricalCrossentropy()
 }
 
 # %%

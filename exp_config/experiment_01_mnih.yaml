@@ -1,0 +1,33 @@
+experiment_name: "resunet_standard"
+n_models: 2
+
+model_params:
+  dropout_rate: 0.0
+
+run_training: true
+train_kwargs:
+  epochs: 2000
+  early_stopping_epochs: 2
+  batch_size: 32
+  learning_rate: 0.001
+  loss_fn: "default_cce"
+  uncertainty_dir: null
+  uncertainty_metric: "Entropy"
+
+run_finetune: false
+base_pretrained_dir: "experimentos_deforestation/nobuffer/resunet_standard/"
+fine_tune_kwargs:
+  fine_tune_at: 31
+  learning_rate: 0.00001
+  epochs: 2000
+  early_stopping_epochs: 1
+  batch_size: 32
+  loss_fn: "masked_cce"
+  uncertainty_dir: null
+  uncertainty_metric: "StdDev"
+
+run_evaluation: true
+
+run_uncertainty: true
+uncertainty_kwargs:
+  metric: "Entropy"

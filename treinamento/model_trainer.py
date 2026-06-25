@@ -20,7 +20,7 @@ from .metrics import CustomF1Score
 from .lr_decay import StepDecay, ConstantLR, LRStrategy
 from .training_loop import train_model_loop
 # from .training_loop_uce import train_model_loop
-from .utils import show_training_plot
+from .utils import show_training_plot, parse_and_normalize
 from .fine_tuning import FineTuneStrategy
 from ..entropy.utils import UncertaintyMetric #, uncert_metric_method
 
@@ -55,9 +55,7 @@ class ModelTrainer:
         metrics_train = metrics_train or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         metrics_val = metrics_val or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         loss_fn = loss_fn or tf.keras.losses.CategoricalCrossentropy(from_logits=False)
-
-        # Default strategy if none is provided
-        lr_strategy = lr_strategy or ConstantLR()
+        lr_strategy = lr_strategy or ConstantLR() # Constant LR if no strategy is provided
         
         # Snapshot execution configuration parameters for logging
         dict_parameters = locals().copy()
@@ -114,7 +112,6 @@ class ModelTrainer:
         metrics_train = metrics_train or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         metrics_val = metrics_val or [CustomF1Score(), Precision(class_id=1), Recall(class_id=1)]
         loss_fn = loss_fn or tf.keras.losses.CategoricalCrossentropy(from_logits=False)
-        
         lr_strategy = lr_strategy or ConstantLR()
 
         dict_parameters = locals().copy()
@@ -184,11 +181,16 @@ class ModelTrainer:
 
         # Dynamic fallback configurations for dataset shuffle buffers
         shuffle_train = buffer_shuffle or len(train_ds)
-        shuffle_valid = buffer_shuffle or len(valid_ds)
-
+        
         return (
-            train_ds.shuffle(shuffle_train).batch(batch_size),
-            valid_ds.shuffle(shuffle_valid).batch(batch_size)
+        train_ds.shuffle(shuffle_train)
+                .map(parse_and_normalize, num_parallel_calls=tf.data.AUTOTUNE)
+                .batch(batch_size)
+                .prefetch(buffer_size=tf.data.AUTOTUNE),
+                
+        valid_ds.map(parse_and_normalize, num_parallel_calls=tf.data.AUTOTUNE)
+                .batch(batch_size)
+                .prefetch(buffer_size=tf.data.AUTOTUNE)
         )
 
     def _configure_optimizer(self, model, learning_rate, lr_strategy, train_dataset, batch_size):
