@@ -52,7 +52,7 @@ def combo_loss(weight_cce=1., weight_dice=1.):
         y_true = tf.cast(y_true, tf.float32)
         y_pred = tf.cast(y_pred, tf.float32)
         
-        # 2. Calculate the standard cross-entropy (no reduction)
+        # 2. Calculate the standard cross-entropy and reduce it
         loss_cce = tf.keras.losses.categorical_crossentropy(y_true, y_pred, from_logits=False)
         loss_cce = tf.reduce_mean(loss_cce)
         
@@ -65,4 +65,36 @@ def combo_loss(weight_cce=1., weight_dice=1.):
     # Return loss
     return loss
 
+# %%
 
+def weighted_cce(class_weights):
+    """
+    Weighted Categorical Cross-Entropy loss.
+    Assumes channels-last format: (Batch, Height, Width, Channels)
+    """
+    # Convert weights to tensor
+    class_weights = tf.constant(class_weights, dtype=tf.float32)
+    
+    def loss(y_true, y_pred):
+        # 1. Ensure tensors in float32 format
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        
+        # 2. Clip values to protect against log(0), causing NaN errors
+        epsilon = tf.keras.backend.epsilon() # 1e-7
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
+        
+        # 3. Calculate pixel-wise standard cross-entropy (maintain channels)
+        loss_cce = -y_true * tf.math.log(y_pred)
+        
+        # 4. Apply weights
+        weighted_cce = loss_cce * class_weights
+        
+        # 5. Sum across classes 
+        weighted_cce = tf.reduce_sum(weighted_cce, axis=-1)
+        
+        # 6. Return the mean over the batch
+        return tf.reduce_mean(weighted_cce)
+
+    # Return loss
+    return loss
