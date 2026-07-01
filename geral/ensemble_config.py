@@ -17,7 +17,7 @@ import yaml
 # 1. Define your Loss Registry mapping strings to actual functions
 # Import your custom losses here
 from package_doc.treinamento.custom_loss import masked_cce, custom_offset_entropy_loss
-from package_doc.treinamento.losses2 import dice_loss
+from package_doc.treinamento.losses2 import dice_loss, combo_loss
 
 from tensorflow.keras.losses import CategoricalCrossentropy
 
@@ -27,7 +27,8 @@ LOSS_REGISTRY = {
     "masked_cce": masked_cce,
     "custom_offset_entropy_loss": custom_offset_entropy_loss,
     "default_cce": CategoricalCrossentropy(),
-    "dice": dice_loss
+    "dice": dice_loss,
+    "combo": combo_loss
 }
 
 # %%

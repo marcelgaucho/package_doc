@@ -10,13 +10,12 @@ Created on Tue Jun 30 17:56:29 2026
 import tensorflow as tf
 from tensorflow.keras import backend as K
 
-# %%
+# %% Dice Loss
 
 def dice_loss(y_true, y_pred):
     """
     Computes the Dice Loss for the foreground class (roads), ignoring background.
-    Assumes channels-last format (Batch, Height, Width, Channels) and that 
-    y_pred has already been passed through a Sigmoid/Softmax activation.
+    Assumes channels-last format (Batch, Height, Width, Channels).
     """
     # Smooth constant added to numerator and denominator to 
     # stabilize training and avoid zero division
@@ -26,10 +25,10 @@ def dice_loss(y_true, y_pred):
     y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.cast(y_pred, tf.float32)
     
-    # 2. Isolate channel 1 (roads) due to massive background (class imbalance)
+    # 2. Uncomment to Isolate channel 1 (roads) due to massive background (class imbalance)
     # Assumes a 2-channel input where channel 0 is background.
-    y_true = y_true[..., 1:]
-    y_pred = y_pred[..., 1:]
+    # y_true = y_true[..., 1:]
+    # y_pred = y_pred[..., 1:]
     
     # 3. Sum over spatial dimensions (Height, Width) -> axes 1 and 2
     # This keeps the Batch (axis 0) and Class (axis 3) dimensions intact
@@ -45,15 +44,25 @@ def dice_loss(y_true, y_pred):
         
 
 
-# %% --- OPCIONAL: COMBO LOSS (CCE + DICE) ATUALIZADA ---
+# %% Combo Loss: CCE + Dice
 
-def combo_loss(smooth=1e-6, dice_weight=0.5):
-    cce = tf.keras.losses.CategoricalCrossentropy()
-    d_loss = dice_loss(smooth)
-    
+def combo_loss(weight_cce=1., weight_dice=1.):
     def loss(y_true, y_pred):
-        cce_loss = cce(y_true, y_pred)
-        dice = d_loss(y_true, y_pred)
-        return (1.0 - dice_weight) * cce_loss + dice_weight * dice
+        # 1. Ensure tensors in float32 format
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cast(y_pred, tf.float32)
         
+        # 2. Calculate the standard cross-entropy (no reduction)
+        loss_cce = tf.keras.losses.categorical_crossentropy(y_true, y_pred, from_logits=False)
+        loss_cce = tf.reduce_mean(loss_cce)
+        
+        # 3. Calculate the dice loss
+        loss_dice = dice_loss(y_true, y_pred)
+        
+        # 4. Return the combined loss
+        return (weight_cce * loss_cce) + (weight_dice * loss_dice)
+     
+    # Return loss
     return loss
+
+
