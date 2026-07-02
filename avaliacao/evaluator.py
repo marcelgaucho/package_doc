@@ -79,7 +79,7 @@ class ModelEvaluator:
         # Load targets and predictions
         y_array = np.load(self.y_dir / f'y_{split_name}.npy')
         pred_array = np.load(pred_path)
-        prob_array = np.load(prob_path) if include_avg_precision else None
+        prob_array = np.load(prob_path) if include_avg_precision or include_ece else None
         
         # Evaluate for buffer distances
         for buffer_px in buffers_px:
@@ -97,7 +97,7 @@ class ModelEvaluator:
 
     def evaluate_model(self, splits: list = ['valid', 'test'], buffers_px: list = [3], 
                        include_avg_precision: bool = False, 
-                       include_ece: bool = True):
+                       include_ece: bool = False):
         """Evaluates the model on specified dataset splits."""
         for split in splits:
             if split in ['train', 'valid', 'test']:
