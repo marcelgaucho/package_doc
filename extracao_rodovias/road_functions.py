@@ -9,6 +9,7 @@ Created on Wed Apr 22 15:15:01 2026
 
 from osgeo import gdal # First import gdal when it gives error
 import os
+import pdb
 #os.environ["TF_USE_LEGACY_KERAS"] = "1" # Use Keras 2
 
 import tensorflow as tf
@@ -86,7 +87,7 @@ class RoadPatchProcessor:
         self.global_max_train = np.max(maxs, axis=0)
         print(f"Global Stats - Min: {self.global_min_train}, Max: {self.global_max_train}")
         
-    def process_split(self, split_name='train', nodata_value=0, normalize=True):
+    def process_split(self, split_name='train', nodata_value=0, normalize=True, min_road_ratio=0.05, max_patches=None):
         """Pass 2: Extract patches, normalize and filter."""
         if self.global_min_train is None: 
             self._find_train_global_stats(nodata_value)
@@ -124,7 +125,7 @@ class RoadPatchProcessor:
             # Filter Patches (Optional: adjust target_class/threshold based on roads)
             if split_name in ['train', 'valid']:
                 # Filter out patches with no roads if desired
-                object_indexes = IndexesFinder(y_p).object_patches(threshold=0.05, target_class=1)
+                object_indexes = IndexesFinder(y_p).object_patches(threshold=min_road_ratio, target_class=1)
                 x_p, y_p, coords = x_p[object_indexes], y_p[object_indexes], coords[object_indexes]
                 
                 # Filter out no-data patches
@@ -149,6 +150,21 @@ class RoadPatchProcessor:
             y_all.append(y_p)
         
         self.metadata[split_name] = meta
+        
+        # Concatenate into final numpy arrays
+        x_stacked = np.concatenate(x_all, axis=0)
+        y_stacked = np.concatenate(y_all, axis=0)
+        
+        # Subsampling to max_patches
+        if max_patches is not None and len(x_stacked) > max_patches:
+            print(f"--- Subsampling {split_name} split from {len(x_stacked)} down to {max_patches} patches ---")
+            rng = np.random.default_rng(seed=42) # Fixed seed ensures reproducible datasets
+            selected_indices = rng.choice(len(x_stacked), size=max_patches, replace=False)
+            
+            x_stacked = x_stacked[selected_indices]
+            y_stacked = y_stacked[selected_indices]
+            
+        return x_stacked, y_stacked
         
         return np.concatenate(x_all, axis=0), np.concatenate(y_all, axis=0)
 
@@ -190,14 +206,16 @@ class RoadPatchProcessor:
 
 
 # %%
-
+pdb.set_trace()
 patch_size = 256
-overlap_train = 0
+overlap_train = 0.25
 overlap_valid = 0
-overlap_test = 0.5
+overlap_test = 0.25
 x_dir = 'experimentos_massachusetts/x_dir'
 y_dir = 'experimentos_massachusetts/y_dir'
 nodata_value = 255
+min_road_ratio = 0.05
+max_patches = 4000
 
 # %%
 
@@ -215,14 +233,18 @@ root = "./dataset_massachusetts_mnih_mod/"
 patch_processor = RoadPatchProcessor(root, patch_size, overlap_train)
 
 # Process train
-x_train, y_train = patch_processor.process_split("train", nodata_value, normalize=False) # X train will be normalized (divided by 255) when parsed
+x_train, y_train = patch_processor.process_split("train", 
+                                                 nodata_value, 
+                                                 normalize=False, 
+                                                 min_road_ratio=min_road_ratio, 
+                                                 max_patches=max_patches) # X train will be normalized (divided by 255) when parsed to training
 # np.save(x_dir / 'x_train.npy', x_train)
 # np.save(y_dir / 'y_train.npy', y_train)
 save_dataset(x_dir / 'train_dataset', x_train, onehot(y_train))
 
 # Process valid
 patch_processor.overlap = overlap_valid
-x_valid, y_valid = patch_processor.process_split("valid", nodata_value, normalize=False) # X valid will be normalized (divided by 255) when parsed
+x_valid, y_valid = patch_processor.process_split("valid", nodata_value, normalize=False, min_road_ratio=min_road_ratio) # X valid will be normalized (divided by 255) when parsed to training
 # np.save(x_dir / 'x_valid.npy', x_valid)
 # np.save(y_dir / 'y_valid.npy', y_valid)
 save_dataset(x_dir / 'valid_dataset', x_valid, onehot(y_valid))

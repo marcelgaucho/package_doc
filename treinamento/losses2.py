@@ -14,8 +14,7 @@ from tensorflow.keras import backend as K
 
 def dice_loss(y_true, y_pred):
     """
-    Computes the Dice Loss for the foreground class (roads), ignoring background.
-    Assumes channels-last format (Batch, Height, Width, Channels).
+    Computes the Dice Loss. Assumes channels-last format (Batch, Height, Width, Channels) and one-hot encoding of Y.
     """
     # Smooth constant added to numerator and denominator to 
     # stabilize training and avoid zero division
