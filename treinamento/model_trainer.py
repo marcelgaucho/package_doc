@@ -17,10 +17,10 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Precision, Recall
 from .metrics import CustomF1Score
-from .lr_decay import StepDecay, ConstantLR, LRStrategy
+from .lr_decay import ConstantLR, LRStrategy
 from .training_loop import train_model_loop
 # from .training_loop_uce import train_model_loop
-from .utils import show_training_plot, parse_and_normalize
+from .utils import show_training_plot, parse_and_normalize, transform_augment_batch
 from .fine_tuning import FineTuneStrategy
 from ..entropy.utils import UncertaintyMetric #, uncert_metric_method
 
@@ -48,7 +48,7 @@ class ModelTrainer:
                         metrics_train=None, metrics_val=None,
                         learning_rate=0.001, loss_fn=None,
                         buffer_shuffle=None, batch_size=16, data_augmentation=True,
-                        mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None, 
+                        mode='max', lr_strategy: LRStrategy=None, 
                         uncertainty_dir=None, uncertainty_metric=UncertaintyMetric.Entropy):
         
         # Handle mutable defaults safely
@@ -65,15 +65,9 @@ class ModelTrainer:
         model = tf.keras.models.clone_model(self.model)
         start_time = time.time()
         
-        # Scale batch size down for data augmentation factoring
-        if data_augmentation:
-            if batch_size % augment_batch_factor != 0: 
-                raise ValueError(f"Batch size ({batch_size}) must be perfectly divisible by augment_batch_factor ({augment_batch_factor}).")
-            batch_size //= augment_batch_factor
-
         # 1. Pipeline Stage: Build and structure Datasets
         train_dataset, valid_dataset = self._prepare_datasets(uncertainty_dir, batch_size, buffer_shuffle,
-                                                              uncertainty_metric)
+                                                              uncertainty_metric, data_augmentation)
 
         # 2. Pipeline Stage: Configure Schedulers and Optimizer
         optimizer = self._configure_optimizer(model, learning_rate, lr_strategy, train_dataset, batch_size)
@@ -84,8 +78,7 @@ class ModelTrainer:
             train_dataset=train_dataset, valid_dataset=valid_dataset,
             optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
             model_path=self.model_path, early_stopping_delta=self.early_stopping_delta,
-            data_augmentation=data_augmentation, lr_strategy=lr_strategy,  
-            mode=mode, augment_batch_factor=augment_batch_factor,
+            lr_strategy=lr_strategy, mode=mode
         )
         
         # Support both the legacy raw list output and the modern structured dictionary output
@@ -104,8 +97,8 @@ class ModelTrainer:
     
     def fine_tune(self, base_model_path, strategy: FineTuneStrategy, epochs=1000, early_stopping_epochs=30,
                   metrics_train=None, metrics_val=None, loss_fn=None,
-                  buffer_shuffle=None, batch_size=16, data_augmentation=False,
-                  mode='max', augment_batch_factor=2, lr_strategy: LRStrategy=None,
+                  buffer_shuffle=None, batch_size=16, data_augmentation=True,
+                  mode='max', lr_strategy: LRStrategy=None,
                   uncertainty_dir=None, uncertainty_metric=UncertaintyMetric.Entropy):
         """Phase 2 execution using an interchangeable FineTuneStrategy configuration."""
         
@@ -127,14 +120,9 @@ class ModelTrainer:
         # 2. Apply Strategy to alter layer states (freezing/unfreezing logic)
         model = strategy.apply(model)
 
-        if data_augmentation:
-            if batch_size % augment_batch_factor != 0: 
-                raise ValueError(f"Batch size ({batch_size}) must be perfectly divisible by augment_batch_factor ({augment_batch_factor}).")
-            batch_size //= augment_batch_factor
-
         # 3. Reuse your clean internal pipeline helpers
         train_dataset, valid_dataset = self._prepare_datasets(uncertainty_dir, batch_size, buffer_shuffle,
-                                                              uncertainty_metric)
+                                                              uncertainty_metric, data_augmentation)
         
         # 4. Configure optimizer using strategy's custom micro-learning rate
         optimizer = self._configure_optimizer(
@@ -148,8 +136,7 @@ class ModelTrainer:
             train_dataset=train_dataset, valid_dataset=valid_dataset,
             optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
             model_path=self.model_path, early_stopping_delta=self.early_stopping_delta,
-            data_augmentation=data_augmentation, lr_strategy=lr_strategy,  
-            mode=mode, augment_batch_factor=augment_batch_factor            
+            lr_strategy=lr_strategy, mode=mode            
         )
         
         if isinstance(results, dict):
@@ -164,7 +151,7 @@ class ModelTrainer:
         
         return result_history
 
-    def _prepare_datasets(self, uncertainty_dir, batch_size, buffer_shuffle, uncertainty_metric):
+    def _prepare_datasets(self, uncertainty_dir, batch_size, buffer_shuffle, uncertainty_metric, data_augmentation):
         """Internal helper to load, combine weights, shuffle, and batch tf.data pipelines."""
         train_ds = tf.data.Dataset.load(str(self.x_dir / 'train_dataset/'))
         valid_ds = tf.data.Dataset.load(str(self.x_dir / 'valid_dataset/'))
@@ -182,17 +169,22 @@ class ModelTrainer:
         # Dynamic fallback configurations for dataset shuffle buffers
         shuffle_train = buffer_shuffle or len(train_ds)
         
-        return (
-        train_ds.shuffle(shuffle_train)
-                .map(parse_and_normalize, num_parallel_calls=tf.data.AUTOTUNE)
-                .batch(batch_size)
-                .prefetch(buffer_size=tf.data.AUTOTUNE),
-                
-        valid_ds.map(parse_and_normalize, num_parallel_calls=tf.data.AUTOTUNE)
-                .batch(batch_size)
-                .prefetch(buffer_size=tf.data.AUTOTUNE)
-        )
-
+        train_ds = train_ds.shuffle(shuffle_train).map(parse_and_normalize, num_parallel_calls=tf.data.AUTOTUNE) # parse and normalize if needed
+        
+        # Include a map in train dataset for data augmentation
+        if data_augmentation:
+            train_ds = train_ds.batch(batch_size).map(transform_augment_batch, num_parallel_calls=tf.data.AUTOTUNE) # Bath and map
+        else:
+            train_ds = train_ds.batch(batch_size) # Only batch
+            
+        train_ds = train_ds.prefetch(buffer_size=tf.data.AUTOTUNE)
+        
+        valid_ds = valid_ds.map(parse_and_normalize, num_parallel_calls=tf.data.AUTOTUNE) \
+                                .batch(batch_size) \
+                                .prefetch(buffer_size=tf.data.AUTOTUNE)
+                                
+        return train_ds, valid_ds
+        
     def _configure_optimizer(self, model, learning_rate, lr_strategy, train_dataset, batch_size):
         """Internal helper to build optimizer variables and assign learning rate routines."""
         optimizer = self.optimizer

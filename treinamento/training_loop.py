@@ -12,16 +12,15 @@ import numpy as np
 import tensorflow as tf 
 from .lr_decay import ReduceOnPlateau
 from .steps import train_step, test_step
-from .utils import transform_augment_batch, show_imgs_augmented
 from .early_stopping import EarlyStopping
 import time
+import pdb
 
 # %%
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
                      loss_fn, metrics_train=[], metrics_val=[], model_path='best_model.keras',
-                     early_stopping_delta=0.01, data_augmentation=False, lr_strategy=None,
-                     mode='max', augment_batch_factor=2):
+                     early_stopping_delta=0.01, lr_strategy=None, mode='max'):
     
     # 1. Setup Tracking
     history_train, history_valid = [], []
@@ -32,35 +31,16 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
     
     # Instantiate Early Stopping and Reduce on Plateau classes
     early_stopper = EarlyStopping(patience=early_stopping_epochs, min_delta=early_stopping_delta, mode=mode)
-    
+
     for epoch in range(epochs):
         print(f"\nEpoch {epoch+1}/{epochs} | LR: {optimizer.learning_rate.numpy():.6f}")
-        start_time = time.time()
+        start_time = time.time() # Starts epoch training time
 
         # --- TRAINING ---
         for step, batches in enumerate(train_dataset):
             # Dynamic unpacking
             x_batch, y_batch = batches[0], batches[1]
             e_batch = batches[2] if len(batches) == 3 else None
-
-            if data_augmentation:
-                # Generate multiple augmented versions
-                aug_x_list, aug_y_list, aug_e_list = [x_batch], [y_batch], ([e_batch] if e_batch is not None else [])
-                
-                for _ in range(augment_batch_factor - 1):
-                    items = (x_batch, y_batch, e_batch) if e_batch is not None else (x_batch, y_batch)
-                    augmented = transform_augment_batch(items)
-                    
-                    aug_x_list.append(augmented[0])
-                    aug_y_list.append(augmented[1])
-                    if e_batch is not None: aug_e_list.append(augmented[2])
-
-                x_batch = tf.concat(aug_x_list, axis=0)
-                y_batch = tf.concat(aug_y_list, axis=0)
-                if e_batch is not None: e_batch = tf.concat(aug_e_list, axis=0)
-                
-                # DEBUG
-                # show_imgs_augmented(x_batch, augmented[0])
 
             # Execution
             loss_value = train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch)

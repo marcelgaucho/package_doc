@@ -272,14 +272,14 @@ def transform_augment_tf_xy(items):
 # %% Correction by Google IA
 
 @tf.function
-def transform_augment_batch(items):
+def transform_augment_batch(*items):
     """
     Applies unique D4 transformations to each item in a tuple (x, y, and optionally e).
     Uses vectorized_map for batch-level efficiency.
     """
     def _apply_single_sample(tensors):
         # Options 1 to 7
-        opcao = tf.random.uniform([], minval=1, maxval=8, dtype=tf.int32)
+        opcao = tf.random.uniform([], minval=0, maxval=8, dtype=tf.int32)
         
         # 1. Flip Vertical (opcao 1, 6, 7) or Flip Horizontal (opcao 2)
         cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
@@ -342,6 +342,33 @@ def transform_augment_batch_optimized(items):
         return tf.nest.map_structure(transform, tensors)
 
     return tf.vectorized_map(_apply_single_sample, items)
+
+# %% Given by Gemini to transform a sample instead of a batch
+
+@tf.function
+def transform_augment_sample(*tensors): # Use *tensors to catch either (x, y) or (x, y, e)
+    """
+    Applies unique D4 transformations to a single sample tuple.
+    Parallelism is handled by tf.data.Dataset.map(num_parallel_calls=AUTOTUNE).
+    """
+    # Options 0 to 7 (8 total states)
+    opcao = tf.random.uniform([], minval=0, maxval=8, dtype=tf.int32)
+    
+    # 1. Flip Vertical (1, 6, 7) or Flip Horizontal (2)
+    cond_flip_v = tf.reduce_any([tf.equal(opcao, 1), tf.equal(opcao, 6), tf.equal(opcao, 7)])
+    cond_flip_h = tf.equal(opcao, 2)
+    
+    # Lookup table for number k of rotations
+    mapa_k = tf.constant([ 0,  0,  0,  1,  2,  3,  1,  3], dtype=tf.int32)
+    k = tf.gather(mapa_k, opcao)
+
+    def transform(t):
+        t = tf.where(cond_flip_v, tf.image.flip_up_down(t), t)
+        t = tf.where(cond_flip_h, tf.image.flip_left_right(t), t)
+        return tf.image.rot90(t, k=k)
+
+    # Apply the same exact geometric transform to x, y, and optionally e
+    return tf.nest.map_structure(transform, tensors)
 
 # %% Function to parse and normalize uint8 data (divide by 255)
 
