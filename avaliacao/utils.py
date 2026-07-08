@@ -108,3 +108,22 @@ def load_reference_mosaics(label_tiles_dir: Union[str, Path]) -> np.ndarray:
     
     # Return stacked array
     return stack_uneven(y_mosaics)[..., np.newaxis]
+
+# %% Function to decode one-hot array in dataset
+
+def decode_onehot(y_onehot: np.ndarray, ignore_index: int = 255) -> np.ndarray:
+    """
+    Reverses one-hot encoding, converting (B, H, W, C) back to sparse (B, H, W, 1).
+    Restores the ignore_index for pixels where all class channels are 0.
+    """
+    # Get the predicted class indices
+    y_sparse = np.argmax(y_onehot, axis=-1)[..., np.newaxis]
+    
+    # Identify pixels that were ignored (all channels sum to 0)
+    if ignore_index is not None:
+        ignore_mask = np.sum(y_onehot, axis=-1)[..., np.newaxis] == 0
+        y_sparse[ignore_mask] = ignore_index
+        
+    return y_sparse.astype(np.uint8)
+
+

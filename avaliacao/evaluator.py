@@ -10,6 +10,7 @@ Created on Fri May 29 18:37:06 2026
 from osgeo import gdal
 from pathlib import Path
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras.models import load_model
 import json
 import warnings
@@ -24,7 +25,7 @@ from ..treinamento.model_trainer import ModelTrainer
 
 from .metric_calculator import RelaxedMetricCalculator
 from .mosaics import MosaicGenerator
-from .utils import stack_uneven, ignore_small_areas, load_reference_mosaics
+from .utils import stack_uneven, ignore_small_areas, load_reference_mosaics, decode_onehot
 
 # %%
 
@@ -56,6 +57,46 @@ class ModelEvaluator:
         pred = np.argmax(prob, axis=-1)[..., np.newaxis]
         prob = prob[..., 1:2]  # Only road probabilities (Class 1)
         return prob, pred
+    
+    def _load_split_data(self, split_name: str, load_x: bool = True, load_y: bool = True) -> tuple:
+        """
+        Dynamically loads split data. Tries .npy files first, then falls back 
+        to extracting arrays from a tf.data.Dataset folder.
+        """
+        x_npy_path = self.x_dir / f'x_{split_name}.npy'
+        y_npy_path = self.y_dir / f'y_{split_name}.npy'
+        dataset_path = self.x_dir / f'{split_name}_dataset'
+
+        x_array, y_array = None, None
+
+        # Path A: Load from Numpy Arrays (Fastest)
+        if x_npy_path.exists() and y_npy_path.exists():
+            if load_x: 
+                x_array = np.load(x_npy_path)
+            if load_y: 
+                y_array = np.load(y_npy_path)
+            return x_array, y_array
+
+        # Path B: Extract from TensorFlow Dataset
+        if dataset_path.exists():
+            ds = tf.data.Dataset.load(str(dataset_path))
+            x_list, y_list = [], []
+
+            for x_batch, y_batch in ds:
+                if load_x: 
+                    x_list.append(x_batch.numpy())
+                if load_y: 
+                    y_list.append(y_batch.numpy())
+
+            if load_x:
+                x_array = np.concatenate(x_list, axis=0)
+            if load_y:
+                y_array_onehot = np.concatenate(y_list, axis=0)
+                y_array = decode_onehot(y_array_onehot, ignore_index=255)
+
+            return x_array, y_array
+
+        raise FileNotFoundError(f"Data for split '{split_name}' not found in {self.x_dir}. Missing both .npy and _dataset folder.")
 
     def _evaluate_split(self, split_name: str, buffers_px: list, include_avg_precision: bool,
                         include_ece: bool):
@@ -63,10 +104,13 @@ class ModelEvaluator:
         prob_path = self.output_dir / f'prob_{split_name}.npy'
         pred_path = self.output_dir / f'pred_{split_name}.npy'
 
-        # Predict and Save if files do not exist
-        if not (prob_path.exists() and pred_path.exists()):
-            # Lazy load data only when needed to save RAM
-            x_array = np.load(self.x_dir / f'x_{split_name}.npy')
+        # RAM OPTIMIZATION: Only load x_array if predictions are actually needed
+        needs_prediction = not (prob_path.exists() and pred_path.exists())
+        
+        # Route through the new dynamic loader
+        x_array, y_array = self._load_split_data(split_name, load_x=needs_prediction, load_y=True)
+
+        if needs_prediction:
             prob, pred = self.model_predict(x_array=x_array)
             
             # Cast to occupy less space
@@ -76,8 +120,7 @@ class ModelEvaluator:
             # Free memory immediately after prediction
             del x_array 
         
-        # Load targets and predictions
-        y_array = np.load(self.y_dir / f'y_{split_name}.npy')
+        # Load predictions and probabilities
         pred_array = np.load(pred_path)
         prob_array = np.load(prob_path) if include_avg_precision or include_ece else None
         
@@ -89,10 +132,12 @@ class ModelEvaluator:
                 buffer_px=buffer_px, 
                 prob_array=prob_array
             )
-            calculator.calculate_metrics(include_avg_precision=include_avg_precision, 
-                                         include_ece=include_ece,
-                                         ece_strategy='adaptive', # Defaulting to the equal-mass strategy
-                                         ece_bins=10)
+            calculator.calculate_metrics(
+                include_avg_precision=include_avg_precision, 
+                include_ece=include_ece,
+                ece_strategy='adaptive', 
+                ece_bins=10
+            )
             calculator.export_results(output_dir=self.output_dir, group=split_name)
 
     def evaluate_model(self, splits: list = ['valid', 'test'], buffers_px: list = [3], 
