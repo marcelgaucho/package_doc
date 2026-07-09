@@ -20,7 +20,7 @@ from .ensemble_config import EnsembleConfig
 from ..entropy.utils import plot_uncertainty_histogram
 from ..entropy.utils import UncertaintyMetric
 from ..avaliacao.mosaics import MosaicGenerator
-from ..avaliacao.utils import stack_uneven, load_reference_mosaics
+from ..avaliacao.utils import stack_uneven, load_reference_mosaics, decode_onehot
 
 # Import existing core classes
 from ..treinamento.model_trainer import ModelTrainer
@@ -88,6 +88,34 @@ class EnsembleManager:
             evaluator.build_test_mosaics(**mosaic_kwargs)
             evaluator.evaluate_mosaics(**eval_mosaic_kwargs)
             
+    def _load_y_array(self, split_name: str) -> np.ndarray:
+        """
+        Dynamically loads target arrays. Tries .npy files first, then falls back 
+        to extracting and decoding one-hot targets from a tf.data.Dataset.
+        """
+        y_npy_path = self.y_dir / f'y_{split_name}.npy'
+        dataset_path = self.x_dir / f'{split_name}_dataset'
+        
+        # Path A: Load directly from Numpy Array (Test Set)
+        if y_npy_path.exists(): 
+            y_array = np.load(y_npy_path)
+            return y_array
+
+        # Path B: Extract from TensorFlow Dataset (Train/Valid Sets)
+        if dataset_path.exists():
+            ds = tf.data.Dataset.load(str(dataset_path))
+            y_list = []
+            
+            for _, y_batch in ds:
+                y_list.append(y_batch.numpy())
+                
+            y_array_onehot = np.stack(y_list, axis=0)
+            y_array = decode_onehot(y_array_onehot, ignore_index=255)
+        
+            return y_array
+        
+        raise FileNotFoundError(f"Y Data for split '{split_name}' not found in {self.x_dir} or {self.y_dir}. Missing both .npy and _dataset folder.")
+            
     def calculate_uncertainty(self, data_groups: list, scale_result: bool, metric: UncertaintyMetric, 
                               metric_kwargs: dict, label_tiles_dir: str = None, 
                               info_tiles_name: str = 'info_tiles_test.json',
@@ -116,7 +144,7 @@ class EnsembleManager:
             np.save(uncertainty_dir / f'{metric.value}_{data_group.value}.npy', uncertainty_array)
             
             # Load the true labels for this specific data group to mask ignored pixels
-            y_array = np.load(self.y_dir / f'y_{data_group.value}.npy')
+            y_array = self._load_y_array(data_group.value)
             
             # 2. Generate Plot (for Test set)
             if generate_plot and data_group.value == 'test':

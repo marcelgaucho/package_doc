@@ -58,7 +58,8 @@ class ModelEvaluator:
         prob = prob[..., 1:2]  # Only road probabilities (Class 1)
         return prob, pred
     
-    def _load_split_data(self, split_name: str, load_x: bool = True, load_y: bool = True) -> tuple:
+    def _load_split_data(self, split_name: str, load_x: bool = True, load_y: bool = True,
+                         normalize: bool = True) -> tuple:
         """
         Dynamically loads split data. Tries .npy files first, then falls back 
         to extracting arrays from a tf.data.Dataset folder.
@@ -89,14 +90,17 @@ class ModelEvaluator:
                     y_list.append(y_batch.numpy())
 
             if load_x:
-                x_array = np.concatenate(x_list, axis=0)
+                x_array = np.stack(x_list, axis=0)
+                if normalize:
+                    x_array = x_array.astype(np.float32)/255 # Normalize for Massachusetts dataset (to save space, in these dataset train and valid data 
+                                                             # aren't saved as .npy in order to save space)
             if load_y:
-                y_array_onehot = np.concatenate(y_list, axis=0)
+                y_array_onehot = np.stack(y_list, axis=0)
                 y_array = decode_onehot(y_array_onehot, ignore_index=255)
 
             return x_array, y_array
 
-        raise FileNotFoundError(f"Data for split '{split_name}' not found in {self.x_dir}. Missing both .npy and _dataset folder.")
+        raise FileNotFoundError(f"Data for split '{split_name}' not found in {self.x_dir} or {self.y_dir}. Missing both .npy and _dataset folder.")
 
     def _evaluate_split(self, split_name: str, buffers_px: list, include_avg_precision: bool,
                         include_ece: bool):

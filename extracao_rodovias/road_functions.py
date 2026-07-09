@@ -104,9 +104,13 @@ class RoadPatchProcessor:
         maps_dir = base / "maps"
         
         x_all, y_all = [], []
-        meta = {'patch_size': self.patch_size, 'overlap': self.overlap, 'tile_info': []}
+        meta = {'patch_size': self.patch_size, 
+                'overlap': self.overlap, 
+                'global_min_train': self.global_min_train,
+                'global_max_train': self.global_max_train,
+                'tile_info': []}
         
-        for img_path in sorted(input_dir.glob("*.tif*")):
+        for img_path in sorted(input_dir.glob("*.tiff")):
             fname = img_path.name
             
             # The mask might have a different extension (.tif vs .tiff). Ensure exact match.
@@ -214,7 +218,7 @@ overlap_test = 0.25
 x_dir = 'experimentos_massachusetts/x_dir'
 y_dir = 'experimentos_massachusetts/y_dir'
 nodata_value = 255
-min_road_ratio = 0.05
+min_road_ratio = 0.02
 max_patches = 4000
 
 # %%
