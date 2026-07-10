@@ -18,7 +18,7 @@ def dice_loss(y_true, y_pred):
     """
     # Smooth constant added to numerator and denominator to 
     # stabilize training and avoid zero division
-    smooth = 1e-7
+    smooth = 1e-5
     
     # 1. Ensure tensors in float32 format
     y_true = tf.cast(y_true, tf.float32)
@@ -26,14 +26,14 @@ def dice_loss(y_true, y_pred):
     
     # 2. Uncomment to Isolate channel 1 (roads) due to massive background (class imbalance)
     # Assumes a 2-channel input where channel 0 is background.
-    # y_true = y_true[..., 1:]
-    # y_pred = y_pred[..., 1:]
+    y_true = y_true[..., 1:]
+    y_pred = y_pred[..., 1:]
     
-    # 3. Sum over spatial dimensions (Height, Width) -> axes 1 and 2
-    # This keeps the Batch (axis 0) and Class (axis 3) dimensions intact
-    intersection = tf.reduce_sum(y_true * y_pred, axis=(1, 2))
-    true_sum = tf.reduce_sum(y_true, axis=(1, 2))
-    pred_sum = tf.reduce_sum(y_pred, axis=(1, 2))
+    # 3. Sum over batch and spatial dimensions (Batch, Height, Width) -> axes 0, 1 and 2
+    # This keeps intact only the Class dimension (axis 3)
+    intersection = tf.reduce_sum(y_true * y_pred, axis=(0, 1, 2))
+    true_sum = tf.reduce_sum(y_true, axis=(0, 1, 2))
+    pred_sum = tf.reduce_sum(y_pred, axis=(0, 1, 2))
     
     # 5. Calculate Dice coefficient
     dice = (2.0 * intersection + smooth) / (true_sum + pred_sum + smooth)

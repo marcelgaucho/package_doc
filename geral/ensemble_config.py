@@ -22,14 +22,15 @@ from package_doc.treinamento.losses2 import dice_loss, combo_loss, weighted_cce
 from tensorflow.keras.losses import CategoricalCrossentropy
 
 # %%
-
+weights = [1., 1.]
+print('Weights For Weighted Loss (Cross Entropy or Combo Loss): ', weights)
 LOSS_REGISTRY = {
     "masked_cce": masked_cce,
     "custom_offset_entropy_loss": custom_offset_entropy_loss,
     "default_cce": CategoricalCrossentropy(),
     "dice": dice_loss,
-    "combo": combo_loss(),
-    "weighted_cce": weighted_cce([1., 5.])
+    "combo": combo_loss(weights),
+    "weighted_cce": weighted_cce(weights),
 }
 
 # %%

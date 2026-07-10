@@ -106,8 +106,8 @@ class RoadPatchProcessor:
         x_all, y_all = [], []
         meta = {'patch_size': self.patch_size, 
                 'overlap': self.overlap, 
-                'global_min_train': self.global_min_train,
-                'global_max_train': self.global_max_train,
+                'global_min_train': self.global_min_train.tolist(),
+                'global_max_train': self.global_max_train.tolist(),
                 'tile_info': []}
         
         for img_path in sorted(input_dir.glob("*.tiff")):
