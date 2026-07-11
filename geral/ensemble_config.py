@@ -23,7 +23,7 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 
 # %%
 weights = [1., 1.]
-print('Weights For Weighted Loss (Cross Entropy or Combo Loss): ', weights)
+print('Weights For Weighted Loss (Cross Entropy (background, foreground) or Combo Loss (cce, dice)): ', weights)
 LOSS_REGISTRY = {
     "masked_cce": masked_cce,
     "custom_offset_entropy_loss": custom_offset_entropy_loss,

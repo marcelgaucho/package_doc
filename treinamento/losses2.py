@@ -45,7 +45,18 @@ def dice_loss(y_true, y_pred):
 
 # %% Combo Loss: CCE + Dice
 
-def combo_loss(weight_cce=1., weight_dice=1.):
+def combo_loss(loss_weights):
+    """
+    Combined Categorical Cross-Entropy (CCE) and Dice Loss.
+
+    Args:
+        loss_weights (list or tuple): A two-element array containing the multiplier 
+            weights for the CCE loss and Dice loss, respectively (e.g., [0.5, 0.5]).
+
+    Returns:
+        callable: The custom loss function `loss(y_true, y_pred)` for training.
+    """
+    loss_weights = tf.constant(loss_weights, dtype=tf.float32)
     def loss(y_true, y_pred):
         # 1. Ensure tensors in float32 format
         y_true = tf.cast(y_true, tf.float32)
@@ -59,7 +70,7 @@ def combo_loss(weight_cce=1., weight_dice=1.):
         loss_dice = dice_loss(y_true, y_pred)
         
         # 4. Return the combined loss
-        return (weight_cce * loss_cce) + (weight_dice * loss_dice)
+        return (loss_weights[0] * loss_cce) + (loss_weights[1] * loss_dice)
      
     # Return loss
     return loss
