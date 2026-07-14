@@ -19,7 +19,7 @@ import pdb
 # %%
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
-                     loss_fn, metrics_train=[], metrics_val=[], model_path='best_model.keras',
+                     loss_fn, use_uce=False, metrics_train=[], metrics_val=[], model_path='best_model.keras',
                      early_stopping_delta=0.01, lr_strategy=None, mode='max'):
     
     # 1. Setup Tracking

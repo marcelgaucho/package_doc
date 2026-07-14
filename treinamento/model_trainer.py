@@ -46,7 +46,7 @@ class ModelTrainer:
 
     def train_with_loop(self, epochs=2000, early_stopping_epochs=50, 
                         metrics_train=None, metrics_val=None,
-                        learning_rate=0.001, loss_fn=None,
+                        learning_rate=0.001, loss_fn=None, use_uce=False,
                         buffer_shuffle=None, batch_size=16, data_augmentation=True,
                         mode='max', lr_strategy: LRStrategy=None, 
                         uncertainty_dir=None, uncertainty_metric=UncertaintyMetric.Entropy):
@@ -76,7 +76,8 @@ class ModelTrainer:
         results = train_model_loop(
             model=model, epochs=epochs, early_stopping_epochs=early_stopping_epochs,
             train_dataset=train_dataset, valid_dataset=valid_dataset,
-            optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
+            optimizer=optimizer, loss_fn=loss_fn, use_uce=use_uce,
+            metrics_train=metrics_train, metrics_val=metrics_val,
             model_path=self.model_path, early_stopping_delta=self.early_stopping_delta,
             lr_strategy=lr_strategy, mode=mode
         )
@@ -96,7 +97,7 @@ class ModelTrainer:
         return result_history
     
     def fine_tune(self, base_model_path, strategy: FineTuneStrategy, epochs=1000, early_stopping_epochs=30,
-                  metrics_train=None, metrics_val=None, loss_fn=None,
+                  metrics_train=None, metrics_val=None, loss_fn=None, use_uce=False,
                   buffer_shuffle=None, batch_size=16, data_augmentation=True,
                   mode='max', lr_strategy: LRStrategy=None,
                   uncertainty_dir=None, uncertainty_metric=UncertaintyMetric.Entropy):
@@ -134,7 +135,8 @@ class ModelTrainer:
         results = train_model_loop(
             model=model, epochs=epochs, early_stopping_epochs=early_stopping_epochs,
             train_dataset=train_dataset, valid_dataset=valid_dataset,
-            optimizer=optimizer, loss_fn=loss_fn, metrics_train=metrics_train, metrics_val=metrics_val,
+            optimizer=optimizer, loss_fn=loss_fn, use_uce=use_uce,
+            metrics_train=metrics_train, metrics_val=metrics_val,
             model_path=self.model_path, early_stopping_delta=self.early_stopping_delta,
             lr_strategy=lr_strategy, mode=mode            
         )
