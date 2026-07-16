@@ -16,6 +16,7 @@ from pathlib import Path
 import yaml
 # 1. Define your Loss Registry mapping strings to actual functions
 # Import your custom losses here
+from package_doc.treinamento import losses
 from package_doc.treinamento.custom_loss import masked_cce, custom_offset_entropy_loss
 from package_doc.treinamento.losses2 import dice_loss, combo_loss, weighted_cce
 

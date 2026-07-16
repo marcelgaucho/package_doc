@@ -7,7 +7,60 @@ Created on Thu May 14 16:32:24 2026
 """
 
 import tensorflow as tf
-from .custom_loss import uce_categorical_crossentropy
+from . import losses
+from .losses.distribution import uce_categorical_crossentropy
+
+# %% Train step (for normal losses and for U-CE)
+
+@tf.function
+def train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch=None, 
+               use_uce=False, mc_samples=5):
+    
+    # 1. Compute Uncertainty SAFELY (Outside GradientTape)
+    if use_uce:
+        # Run MC passes without tracking gradients to save massive VRAM
+        mc_preds = []
+        for _ in range(mc_samples):
+            mc_preds.append(model(x_batch, training=True))
+            
+        mc_preds_stack = tf.stack(mc_preds)
+        
+        # Calculate Mean and Variance
+        mean_preds = tf.reduce_mean(mc_preds_stack, axis=0)
+        bessel_factor = tf.cast(mc_samples, tf.float32) / tf.cast(mc_samples - 1, tf.float32)
+        variance = tf.math.reduce_variance(mc_preds_stack, axis=0) * bessel_factor # Apply bessel correction to variance
+        std_preds = tf.sqrt(variance + 1e-7) # Epsilon prevents NaN
+        
+        # Extract standard deviation for the predicted class
+        pred_class = tf.argmax(mean_preds, axis=-1)
+        num_classes = tf.shape(mean_preds)[-1]
+        pred_class_one_hot = tf.one_hot(pred_class, depth=num_classes)
+        
+        # Calculate sigma and turns it into a constant by detaching it from the computation graph
+        sigma = tf.reduce_sum(std_preds * pred_class_one_hot, axis=-1)
+        sigma = tf.stop_gradient(sigma) 
+    else:
+        sigma = None
+        mean_preds = None # Not needed if not U-CE
+
+    # 2. Execute Loss (Inside GradientTape)
+    with tf.GradientTape() as tape:
+        preds = model(x_batch, training=True)
+        
+        # Call whatever generic loss_fn was passed in!
+        if e_batch is not None:
+            loss_value = loss_fn(y_true=y_batch, y_pred=preds, sigma=sigma, e_batch=e_batch)
+
+    # 3. Backprop
+    gradients = tape.gradient(loss_value, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    # 4. Update Metrics
+    for train_metric in metrics_train:
+        train_metric.update_state(y_batch, preds)
+        
+    return loss_value
+
 
 # %% Do a train step
 
