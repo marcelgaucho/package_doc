@@ -7,10 +7,14 @@ model_params:
 run_training: true
 train_kwargs:
   epochs: 2000
-  early_stopping_epochs: 2
-  batch_size: 32
+  early_stopping_epochs: 10
+  batch_size: 16
   learning_rate: 0.001
-  loss_fn: "default_cce"
+  loss_fn: "u_categorical_crossentropy"
+  loss_kwargs:               # Bundle the arguments here!
+    #loss_weights: [1.0, 1.0]
+    use_mask: false
+  use_uce: true
   uncertainty_dir: null
   uncertainty_metric: "Entropy"
 
@@ -22,7 +26,7 @@ fine_tune_kwargs:
   epochs: 2000
   early_stopping_epochs: 1
   batch_size: 32
-  loss_fn: "masked_cce"
+  loss_fn: "categorical_crossentropy"
   uncertainty_dir: null
   uncertainty_metric: "StdDev"
 

@@ -23,15 +23,12 @@ from package_doc.treinamento.losses2 import dice_loss, combo_loss, weighted_cce
 from tensorflow.keras.losses import CategoricalCrossentropy
 
 # %%
-weights = [1., 1.]
-print('Weights For Weighted Loss (Cross Entropy (background, foreground) or Combo Loss (cce, dice)): ', weights)
+
 LOSS_REGISTRY = {
-    "masked_cce": masked_cce,
-    "custom_offset_entropy_loss": custom_offset_entropy_loss,
-    "default_cce": CategoricalCrossentropy(),
-    "dice": dice_loss,
-    "combo": combo_loss(weights),
-    "weighted_cce": weighted_cce(weights),
+    "categorical_crossentropy": losses.get_categorical_crossentropy,
+    "combo_loss": losses.get_combo_loss,
+    "u_categorical_crossentropy": losses.get_u_categorical_crossentropy,
+    "u_combo_loss": losses.get_u_combo_loss
 }
 
 # %%
@@ -62,6 +59,27 @@ class EnsembleConfig:
     @property
     def base_output_dir(self) -> Path:
         return Path(self.base_exp_dir) / f'out_{self.experiment_name}'
+    
+    def __post_init__(self):
+        """
+        Validates the configuration state immediately after instantiation.
+        This enforces cross-parameter business rules (Fail Fast).
+        """
+        self._validate_uce_requirements()
+
+    def _validate_uce_requirements(self):
+        """Ensures U-CE is only used when dropout is active."""
+        # 1. Safely extract the parameters
+        use_uce = self.train_kwargs.get('use_uce', False)
+        dropout_rate = self.model_params.get('dropout_rate', 0.0)
+        
+        # 2. Enforce the mathematical requirement
+        if use_uce and float(dropout_rate) <= 0.0:
+            raise ValueError(
+                f"Configuration Error in experiment '{self.experiment_name}': \n"
+                f"  -> 'use_uce' is True, but 'dropout_rate' is {dropout_rate}.\n"
+                f"  -> Uncertainty-Aware training requires a dropout_rate > 0 to function."
+            )
 
     @classmethod
     def from_yaml(cls, experiment_yaml_path: str, base_yaml_path: str = 'base_config.yaml'):
@@ -78,8 +96,15 @@ class EnsembleConfig:
         for phase in ['train_kwargs', 'fine_tune_kwargs']:
             if phase in data:
                 kw = data[phase]
+                
+                # Dynamically instantiate the loss function with its parameters
                 if 'loss_fn' in kw and isinstance(kw['loss_fn'], str):
-                    kw['loss_fn'] = LOSS_REGISTRY[kw['loss_fn']]
+                    loss_factory = LOSS_REGISTRY[kw['loss_fn']]
+                    # Safely get the kwargs dict, defaulting to empty if not in YAML
+                    loss_kwargs = kw.pop('loss_kwargs', {}) 
+                    # Execute the factory function to create the actual Keras loss object
+                    kw['loss_fn'] = loss_factory(**loss_kwargs)
+                    
                 if 'uncertainty_metric' in kw and isinstance(kw['uncertainty_metric'], str):
                     kw['uncertainty_metric'] = UncertaintyMetric[kw['uncertainty_metric']]
 

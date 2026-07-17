@@ -43,7 +43,7 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
             e_batch = batches[2] if len(batches) == 3 else None
 
             # Execution
-            loss_value = train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch)
+            loss_value = train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch, use_uce)
             train_loss_tracker.update_state(loss_value)
 
             if step % 200 == 0:
