@@ -20,7 +20,8 @@ import pdb
 
 def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_dataset, optimizer, 
                      loss_fn, use_uce=False, metrics_train=[], metrics_val=[], model_path='best_model.keras',
-                     early_stopping_delta=0.01, lr_strategy=None, mode='max'):
+                     early_stopping_delta=0.01, lr_strategy=None, mode='max',
+                     step_fn=None): 
     
     # 1. Setup Tracking
     history_train, history_valid = [], []
@@ -38,12 +39,19 @@ def train_model_loop(model, epochs, early_stopping_epochs, train_dataset, valid_
 
         # --- TRAINING ---
         for step, batches in enumerate(train_dataset):
-            # Dynamic unpacking
-            x_batch, y_batch = batches[0], batches[1]
-            e_batch = batches[2] if len(batches) == 3 else None
+            # --- THE STRATEGY PATTERN ---
+            # Defer the unpacking and forward pass to the provided step_fn
+            if step_fn is not None:
+                loss_value = step_fn(batches, model, loss_fn, optimizer, metrics_train)
+            else:
+                # Dynamic unpacking
+                x_batch, y_batch = batches[0], batches[1]
+                e_batch = batches[2] if len(batches) == 3 else None
 
-            # Execution
-            loss_value = train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch, use_uce)
+                # Step execution 
+                loss_value = train_step(x_batch, y_batch, model, loss_fn, optimizer, metrics_train, e_batch, use_uce)
+                
+            # Update loss
             train_loss_tracker.update_state(loss_value)
 
             if step % 200 == 0:
