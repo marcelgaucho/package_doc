@@ -78,15 +78,62 @@ class EnsembleManager:
 
     def evaluate_all(self, label_tiles_dir, eval_kwargs, mosaic_kwargs, eval_mosaic_kwargs):
         """Evaluates all trained models."""
+        print(f"\n--- Starting Ensemble Evaluation ---")
+        
+        model_scores = []     
+        
+        # PASS 1: Evaluate arrays, build mosaics (.npy), and evaluate mosaics (no TIFF exports yet)
         for i, model_dir in enumerate(self._get_model_dirs()):
             print(f"--- Evaluating Model {i+1}/{self.n_models} ---")
             evaluator = ModelEvaluator(
                 x_dir=self.x_dir, y_dir=self.y_dir, output_dir=model_dir, 
                 label_tiles_dir=label_tiles_dir
             )
+            
+            # 1. Standard array evaluation
             evaluator.evaluate_model(**eval_kwargs)
-            evaluator.build_test_mosaics(**mosaic_kwargs)
+            
+            # 2. Build mosaics (Force export flags to False in Pass 1 to prevent premature .tif generation)
+            pass_1_mosaic_kwargs = mosaic_kwargs.copy()
+            pass_1_mosaic_kwargs['export_pred_mosaics'] = False
+            pass_1_mosaic_kwargs['export_prob_mosaics'] = False
+            
+            print(f"  -> Building mosaics (in-memory/.npy only)...")
+            evaluator.build_test_mosaics(**pass_1_mosaic_kwargs)
+            
+            # 3. Evaluate the mosaics
+            print(f"  -> Evaluating mosaics...")
             evaluator.evaluate_mosaics(**eval_mosaic_kwargs)
+            
+            # 4. Extract the benchmark metric from the MOSAIC evaluation JSON
+            buffer_px = eval_mosaic_kwargs.get('buffers_px', [3])[0] # Use first buffer value in list to calculate median
+            mosaic_metrics_path = model_dir / f'relaxed_metrics_mosaics_{buffer_px}px.json'
+            
+            benchmark_metric = 'relaxed_f1' # used to calculate median
+            with open(mosaic_metrics_path, 'r') as f:
+                metrics = json.load(f)
+            score = metrics[benchmark_metric]
+            model_scores.append((score, model_dir, evaluator))
+            
+        # Identify the median model based on MOSAIC scores
+        sorted_scores = sorted(model_scores, key=lambda x: x[0])
+        median_index = len(sorted_scores) // 2 # Middle index, for an odd number of elements (review this if an even number of models is used)         
+        median_score, median_dir, median_evaluator = sorted_scores[median_index]
+        
+        print(f"\n--- Median Mosaic Model Identified: {median_dir.name} ({benchmark_metric}: {median_score:.4f}) ---")
+        
+        # PASS 2: Export TIFFs for the median model ONLY (if configured)
+        export_pred = mosaic_kwargs.get('export_pred_mosaics', False)
+        export_prob = mosaic_kwargs.get('export_prob_mosaics', False)
+        
+        if export_pred or export_prob:
+            print(f"Exporting configured TIFFs for {median_dir.name}...")
+            # Pass the original mosaic_kwargs (which contain the user's True flags)
+            median_evaluator.build_test_mosaics(**mosaic_kwargs)
+        else:
+            print("Skipping TIFF exports: Both 'export_pred_mosaics' and 'export_prob_mosaics' are False in config.")
+            
+        print("\n--- Ensemble Evaluation Complete ---")
             
     def _load_y_array(self, split_name: str) -> np.ndarray:
         """
