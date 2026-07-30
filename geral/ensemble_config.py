@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun 11 21:20:03 2026
-
 @author: Marcel
 """
 
@@ -21,9 +20,11 @@ from package_doc.treinamento import losses
 
 LOSS_REGISTRY = {
     "categorical_crossentropy": losses.get_categorical_crossentropy,
+    "dice_loss": losses.get_dice_loss,
     "combo_loss": losses.get_combo_loss,
     "u_categorical_crossentropy": losses.get_u_categorical_crossentropy,
-    "u_combo_loss": losses.get_u_combo_loss
+    "u_dice_loss": losses.get_u_dice_loss,
+    "u_combo_loss": losses.get_u_combo_loss    
 }
 
 # %%
