@@ -62,4 +62,60 @@ def get_dice_loss(use_mask=True):
         return 1.0 - tf.reduce_mean(dice)
         
     return loss
+    
+# %% Generalized Dice Loss
+
+def get_generalized_dice_loss(use_mask=True):
+    """
+    Factory function that returns a Generalized Dice Loss function.
+    
+    This loss dynamically weights classes by the inverse square of their volume,
+    making it highly robust to severe class imbalances (e.g., roads vs. background)
+    without needing manual class_weights.
+    
+    Args:
+        use_mask (bool): If True, ignores spatial locations where y_true is all zeros.
+    """
+
+    def loss(y_true, y_pred):
+        # Smooth constant added to avoid zero division
+        smooth = 1e-5
+        
+        # 1. Ensure tensors in float32 format
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        
+        # 2. Compute and apply the mask
+        if use_mask:
+            # 0 for pixels with all 0s in all one-hot classes
+            mask = tf.reduce_sum(y_true, axis=-1)
+            mask = tf.cast(mask > 0, dtype=tf.float32)
+            mask = tf.expand_dims(mask, axis=-1)
+            
+            y_true = y_true * mask
+            y_pred = y_pred * mask
+            
+        # 3. Collapse Batch (0), Height (1), and Width (2) to get global class totals
+        # This reduces the tensors to shape (Num_Classes,)
+        reduce_axes = (0, 1, 2)
+        
+        intersection = tf.reduce_sum(y_true * y_pred, axis=reduce_axes)
+        true_sum = tf.reduce_sum(y_true, axis=reduce_axes)
+        pred_sum = tf.reduce_sum(y_pred, axis=reduce_axes)
+        
+        # 4. Calculate Generalized Weights: 1 / (Volume^2)
+        # We add 'smooth' to the denominator to prevent division by zero
+        # in case a batch randomly contains 0 pixels of a specific class.
+        weights = 1.0 / (tf.square(true_sum) + smooth)
+        
+        # 5. Apply weights to the numerator and denominator across all classes
+        numerator = tf.reduce_sum(weights * intersection)
+        denominator = tf.reduce_sum(weights * (true_sum + pred_sum))
+        
+        # 6. Calculate final Generalized Dice score
+        gdl = (2.0 * numerator + smooth) / (denominator + smooth)
+        
+        return 1.0 - gdl
+        
+    return loss
 

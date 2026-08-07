@@ -21,6 +21,7 @@ from package_doc.treinamento import losses
 LOSS_REGISTRY = {
     "categorical_crossentropy": losses.get_categorical_crossentropy,
     "dice_loss": losses.get_dice_loss,
+    "generalized_dice_loss": losses.get_generalized_dice_loss,
     "combo_loss": losses.get_combo_loss,
     "u_categorical_crossentropy": losses.get_u_categorical_crossentropy,
     "u_dice_loss": losses.get_u_dice_loss,
