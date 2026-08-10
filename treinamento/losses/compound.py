@@ -13,7 +13,7 @@ from .region import get_dice_loss
 
 # %% Combo Loss: CCE + Dice
 
-def get_combo_loss(loss_weights, use_mask=True):
+def get_combo_loss(loss_weights=(0.5, 0.5), use_mask=True):
     """
     Factory function that returns a Combined CCE and Dice Loss function.
 

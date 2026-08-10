@@ -7,7 +7,7 @@ Created on Thu Jul 16 19:16:54 2026
 """
 
 from .distribution import get_categorical_crossentropy, get_weighted_categorical_crossentropy
-from .region import get_dice_loss
+from .region import get_dice_loss, get_generalized_dice_loss
 from .compound import get_combo_loss
 
 from .uce_distribution import get_u_categorical_crossentropy, get_u_weighted_categorical_crossentropy
