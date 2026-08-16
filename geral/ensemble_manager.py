@@ -21,6 +21,7 @@ from ..entropy.utils import plot_uncertainty_histogram
 from ..entropy.utils import UncertaintyMetric
 from ..avaliacao.mosaics import MosaicGenerator
 from ..avaliacao.utils import stack_uneven, load_reference_mosaics, decode_onehot
+from ..avaliacao.metrics_reporter import MetricsReporter
 
 # Import existing core classes
 from ..treinamento.model_trainer import ModelTrainer
@@ -132,8 +133,24 @@ class EnsembleManager:
             median_evaluator.build_test_mosaics(**mosaic_kwargs)
         else:
             print("Skipping TIFF exports: Both 'export_pred_mosaics' and 'export_prob_mosaics' are False in config.")
-            
+        '''    
+        # PASS 3: Generate Summary Table
+        buffer_px = eval_mosaic_kwargs.get('buffers_px', [0])[0]
+        
+        # Instantiate the Reporter
+        reporter = MetricsReporter(
+            base_output_dir=self.base_output_dir, 
+            n_models=self.n_models
+        )
+        
+        # Generate and save the table
+        summary_table = reporter.generate_mosaic_summary_table(
+            buffer_px=buffer_px, 
+            export_csv=True
+        )
+        '''            
         print("\n--- Ensemble Evaluation Complete ---")
+        # return summary_table
             
     def _load_y_array(self, split_name: str) -> np.ndarray:
         """

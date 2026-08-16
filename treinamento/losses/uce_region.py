@@ -14,7 +14,7 @@ import tensorflow as tf
 
 # %% U-CE Dice Loss
 
-def get_u_dice_loss(class_weights=None, use_mask=True, alpha=1.0, downweight_uncertainty=False):
+def get_u_dice_loss(class_weights=(0., 1.), use_mask=True, alpha=1.0, downweight_uncertainty=False):
     """
     Factory function for an Uncertainty-Aware Dice Loss.
     
