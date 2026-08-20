@@ -133,7 +133,7 @@ class EnsembleManager:
             median_evaluator.build_test_mosaics(**mosaic_kwargs)
         else:
             print("Skipping TIFF exports: Both 'export_pred_mosaics' and 'export_prob_mosaics' are False in config.")
-        '''    
+            
         # PASS 3: Generate Summary Table
         buffer_px = eval_mosaic_kwargs.get('buffers_px', [0])[0]
         
@@ -148,7 +148,7 @@ class EnsembleManager:
             buffer_px=buffer_px, 
             export_csv=True
         )
-        '''            
+                    
         print("\n--- Ensemble Evaluation Complete ---")
         # return summary_table
             

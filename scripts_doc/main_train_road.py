@@ -20,6 +20,7 @@ from package_doc.geral.ensemble_manager import EnsembleManager
 from package_doc.geral.ensemble_config import EnsembleConfig
 from package_doc.treinamento.metrics import CustomF1Score
 from package_doc.treinamento.fine_tuning import LayerIndexStrategy
+from package_doc.avaliacao.cross_reporter import CrossExperimentReporter
 
 from tensorflow.keras.metrics import Precision, Recall
 
@@ -29,6 +30,7 @@ def main():
     # 1. Load the merged configuration
     config = EnsembleConfig.from_yaml('package_doc/exp_config/experiment_01_mnih.yaml', 
                                       'package_doc/exp_config/base_config_mnih.yaml')
+    base_directory = config.base_exp_dir
     
     # 2. Build the model (injecting the non-YAML python config_dict)
     model_params = config.model_params.copy()
@@ -87,6 +89,19 @@ def main():
     # --- UNCERTAINTY ---
     if config.run_uncertainty:
         manager.calculate_uncertainty(**config.uncertainty_kwargs)
+        
+    # --- REPORTS ---
+    if config.run_aggregate_report:
+        # Initialize the reporter pointing to the root experiments folder
+        global_reporter = CrossExperimentReporter(base_exp_dir=base_directory)
+        
+        # Generate the master summary table for the 0px buffer metrics
+        master_table = global_reporter.generate_master_summary(buffer_px=0, export_csv=True)
+        
+        # Optionally display the first few rows in the console
+        if not master_table.empty:
+            print("\nMaster Summary Preview:")
+            print(master_table.head())
 
 # %%
 

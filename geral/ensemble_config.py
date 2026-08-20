@@ -40,6 +40,7 @@ class EnsembleConfig:
     run_finetune: bool
     run_evaluation: bool
     run_uncertainty: bool
+    run_aggregate_report: bool
     
     # All configurations are now loaded as dynamic dictionaries
     model_params: dict = field(default_factory=dict)
@@ -121,6 +122,7 @@ class EnsembleConfig:
             run_finetune=data.get('run_finetune'),
             run_evaluation=data.get('run_evaluation'),
             run_uncertainty=data.get('run_uncertainty'),
+            run_aggregate_report=data.get('run_aggregate_report'),
             model_params=data.get('model_params', {}),
             train_kwargs=data.get('train_kwargs', {}),
             fine_tune_kwargs=data.get('fine_tune_kwargs', {}),
