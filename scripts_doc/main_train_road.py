@@ -30,7 +30,6 @@ def main():
     # 1. Load the merged configuration
     config = EnsembleConfig.from_yaml('package_doc/exp_config/experiment_01_mnih.yaml', 
                                       'package_doc/exp_config/base_config_mnih.yaml')
-    base_directory = config.base_exp_dir
     
     # 2. Build the model (injecting the non-YAML python config_dict)
     model_params = config.model_params.copy()
@@ -90,18 +89,30 @@ def main():
     if config.run_uncertainty:
         manager.calculate_uncertainty(**config.uncertainty_kwargs)
         
-    # --- REPORTS ---
+    # --- GLOBAL REPORTS ---
     if config.run_aggregate_report:
+        # Get base dir and buffers list from config
+        base_directory = config.base_exp_dir
+        buffers_list = config.eval_mosaic_kwargs.get('buffers_px', [0])
+                
         # Initialize the reporter pointing to the root experiments folder
         global_reporter = CrossExperimentReporter(base_exp_dir=base_directory)
         
-        # Generate the master summary table for the 0px buffer metrics
-        master_table = global_reporter.generate_master_summary(buffer_px=0, export_csv=True)
+        # Generate the master summary tables for the buffers list
+        master_tables = global_reporter.generate_master_summaries(
+            buffers_px=buffers_list, 
+            export_csv=True
+        )   
         
-        # Optionally display the first few rows in the console
-        if not master_table.empty:
-            print("\nMaster Summary Preview:")
-            print(master_table.head())
+        # Optionally display the first few rows of the first master table in the console
+        try:
+            first_master_table = next(iter(master_tables.values()))
+        except StopIteration:
+            raise ValueError("No master tables were generated in the dictionary.")
+        
+        if not first_master_table.empty:
+            print("\nFirst Master Summary Preview:")
+            print(first_master_table.head())
 
 # %%
 

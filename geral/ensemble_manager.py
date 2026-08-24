@@ -134,8 +134,9 @@ class EnsembleManager:
         else:
             print("Skipping TIFF exports: Both 'export_pred_mosaics' and 'export_prob_mosaics' are False in config.")
             
-        # PASS 3: Generate Summary Table
-        buffer_px = eval_mosaic_kwargs.get('buffers_px', [0])[0]
+        # PASS 3: Generate Summary Tables for ALL buffers
+        print("\n--- Generating Summary Tables ---")
+        buffers_px_list = eval_mosaic_kwargs.get('buffers_px', [0])
         
         # Instantiate the Reporter
         reporter = MetricsReporter(
@@ -143,14 +144,17 @@ class EnsembleManager:
             n_models=self.n_models
         )
         
-        # Generate and save the table
-        summary_table = reporter.generate_mosaic_summary_table(
-            buffer_px=buffer_px, 
-            export_csv=True
-        )
-                    
+        # Generate and save the tables
+        summary_tables = {}
+        for buffer_px in buffers_px_list:
+            # The MetricsReporter handles the CSV generation dynamically for each buffer
+            summary_tables[buffer_px] = reporter.generate_mosaic_summary_table(
+                buffer_px=buffer_px, 
+                export_csv=True
+            )
+        
         print("\n--- Ensemble Evaluation Complete ---")
-        # return summary_table
+        return summary_tables
             
     def _load_y_array(self, split_name: str) -> np.ndarray:
         """
