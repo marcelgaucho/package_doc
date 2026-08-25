@@ -18,7 +18,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU'))) # Print 0 gpus (gpu disabled)
 
-cpu_threads = 4
+cpu_threads = 8
 
 print(f"Number of CPU threads used in evaluation: {cpu_threads}") 
 
@@ -39,6 +39,7 @@ from package_doc.extracao_desmatamento.utils import (load_geo_file,
                                                      minmax_normalize,
                                                      export_to_geotiff)
 from package_doc.extracao_desmatamento.utils import save_dataset, onehot
+from package_doc.extracao_rodovias.sampling_function import get_stratified_subsample_indices
 
 from skimage.morphology import disk, dilation, erosion
 
@@ -162,16 +163,20 @@ class RoadPatchProcessor:
         # Subsampling to max_patches
         if max_patches is not None and len(x_stacked) > max_patches:
             print(f"--- Subsampling {split_name} split from {len(x_stacked)} down to {max_patches} patches ---")
-            rng = np.random.default_rng(seed=42) # Fixed seed ensures reproducible datasets
-            selected_indices = rng.choice(len(x_stacked), size=max_patches, replace=False)
+            
+            selected_indices = get_stratified_subsample_indices(
+                y_data=y_stacked.squeeze(axis=-1), 
+                max_patches=max_patches, 
+                target_class=1,     # Assuming 1 is your road class
+                num_bins=10,        # Divides 0% to 100% into 10 intervals
+                seed=42
+            )
             
             x_stacked = x_stacked[selected_indices]
             y_stacked = y_stacked[selected_indices]
             
         return x_stacked, y_stacked
         
-        return np.concatenate(x_all, axis=0), np.concatenate(y_all, axis=0)
-
     def export_info(self, out_path, split_name='test', coords_path=None):
         self.metadata[split_name]['coords_path'] = str(coords_path) 
         
@@ -185,41 +190,16 @@ class RoadPatchProcessor:
         return f'RoadPatchProcessor(base_path={self.base_path}, patch_size={self.patch_size}, overlap={self.overlap})'
 
 # %%
-
-# =============================================================================
-# patch_size = 64
-# overlap = 0.9
-# test_tileinfo_path = 'testes2/info_tiles_test.json'
-# test_coords_path = 'testes2/coords_test.npz'
-# 
-# # --- Example Workflow ---
-# root = "./deforestation_dataset/PA"
-# patch_processor = PatchProcessor(root, patch_size, overlap)
-# 
-# # Process train
-# x_train, y_train = patch_processor.process_split("train")
-# 
-# # Process valid
-# x_val, y_val = patch_processor.process_split("valid")
-# 
-# # Process test and export info and coords
-# patch_processor.overlap = 0.75
-# x_test, y_test = patch_processor.process_split("test")
-# patch_processor.export_info(test_tileinfo_path, 'test', test_coords_path)
-# =============================================================================
-
-
-# %%
-pdb.set_trace()
+# pdb.set_trace()
 patch_size = 256
-overlap_train = 0.25
+overlap_train = 0
 overlap_valid = 0
 overlap_test = 0.25
-x_dir = 'experimentos_massachusetts/x_dir'
-y_dir = 'experimentos_massachusetts/y_dir'
+x_dir = 'experimentos_massachusetts_sibgrapi_perc_5_subset_5000/x_dir'
+y_dir = 'experimentos_massachusetts_sibgrapi_perc_5_subset_5000/y_dir'
 nodata_value = 255
-min_road_ratio = 0.02
-max_patches = 4000
+min_road_ratio = 0.05
+max_patches = 5000
 
 # %%
 
