@@ -28,13 +28,19 @@ class CrossExperimentReporter:
             if d.is_dir() and d.name.startswith('out_')
         ]
     
-    def generate_master_summaries(self, buffers_px: list[int] = None, export_csv: bool = True) -> dict[int, pd.DataFrame]:
+    def generate_master_summaries(self, buffers_px: list[int] = None, export_csv: bool = True,
+                                  export_excel: bool = True) -> dict[int, pd.DataFrame]:
         """Iterates through all provided buffers and orchestrates summary generation."""
         buffers_px = buffers_px or [0]
         master_tables = {}
         
+        # 1. Generate all tables dynamically
         for buffer_px in buffers_px:
             master_tables[buffer_px] = self._generate_single_buffer_summary(buffer_px, export_csv)
+            
+        # 2. Export the consolidated multi-tab Excel file
+        if export_excel and any(not df.empty for df in master_tables.values()):
+            self._export_to_excel(master_tables)
             
         return master_tables
     
@@ -81,3 +87,15 @@ class CrossExperimentReporter:
             print(f"Master summary successfully exported to: {output_path.name}")
             
         return master_df
+    
+    def _export_to_excel(self, master_tables: dict[int, pd.DataFrame]):
+        """Private helper: Maps a dictionary of DataFrames to separate sheets in a single Excel file."""
+        output_path = self.base_exp_dir / 'master_experiment_summaries.xlsx'
+        print("\n=== Exporting Multi-Tabbed Excel Summary ===")
+        
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            for buffer_px, df in master_tables.items():
+                if not df.empty:
+                    # Name the sheet dynamically based on the buffer size
+                    sheet_name = f"{buffer_px}px_Buffer"
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)

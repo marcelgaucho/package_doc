@@ -12,6 +12,7 @@ Created on Fri Mar 29 01:44:18 2024
 from .unet import build_model_unet
 from .resunet import build_model_resunet
 from .unetr_2d import build_unetr_2d
+from .tiny_unet import build_tiny_unet
 
 # Could be SegFormer_B0, SegFormer_B1, SegFormer_B2,
 # SegFormer_B3, SegFormer_B4, SegFormer_B5, but here
@@ -39,5 +40,9 @@ def build_model(input_shape, n_classes, model_type='unet', config_dict=None,
     elif model_type == 'segformer_b5':
         return SegFormer_B5(input_shape, n_classes)  
     
+    elif model_type == 'tiny_unet':
+        return build_tiny_unet(input_shape, n_classes)
+        
     else:
-        raise Exception("Model options are 'unet' and 'resunet' and 'unetr' and 'segformer_b5'")
+        raise Exception("Model options are 'unet' and 'resunet' and 'unetr' and 'segformer_b5'"
+                        " and 'tiny_unet'")

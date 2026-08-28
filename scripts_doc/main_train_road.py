@@ -101,7 +101,8 @@ def main():
         # Generate the master summary tables for the buffers list
         master_tables = global_reporter.generate_master_summaries(
             buffers_px=buffers_list, 
-            export_csv=True
+            export_csv=True,
+            export_excel=True
         )   
         
         # Optionally display the first few rows of the first master table in the console
