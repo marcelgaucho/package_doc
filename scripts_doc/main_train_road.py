@@ -9,6 +9,7 @@ Created on Tue Jun  2 21:05:35 2026
 
 from osgeo import gdal
 from package_doc.geral.utils import setup_hardware
+from pathlib import Path
 
 # Setup hardware
 setup_hardware(cpu_threads=8, gpu_memory_limit=19456) # Multiple of 1024 MiB (1 GiB)
@@ -21,6 +22,7 @@ from package_doc.geral.ensemble_config import EnsembleConfig
 from package_doc.treinamento.metrics import CustomF1Score
 from package_doc.treinamento.fine_tuning import LayerIndexStrategy
 from package_doc.avaliacao.cross_reporter import CrossExperimentReporter
+from package_doc.exibicao.figure_generator import FigureGenerator
 
 from tensorflow.keras.metrics import Precision, Recall
 
@@ -114,6 +116,20 @@ def main():
         if not first_master_table.empty:
             print("\nFirst Master Summary Preview:")
             print(first_master_table.head())
+            
+    # --- COMPARISON PLOT ---
+    if config.save_comparison_plot:
+        # Reference the exact CSV master summary to get the model with median F1 for each experiment
+        base_directory_path = Path(config.base_exp_dir)
+        figure_generator = FigureGenerator(
+            base_exp_dir=config.base_exp_dir,
+            master_csv_path=base_directory_path / 'master_experiment_summary_0px.csv'
+        )
+        
+        # Pick an index that highlights the benefits of uncertainty-aware losses
+        TARGET_PATCH = 42
+        figure_generator.generate_figure(patch_idx=TARGET_PATCH, save_path=base_directory_path / "comparison_grid.pdf")
+            
 
 # %%
 

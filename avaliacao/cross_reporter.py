@@ -69,8 +69,10 @@ class CrossExperimentReporter:
             # Load the experiment's summary table
             df = pd.read_csv(summary_csv_path)
             
+            # Standardize columns FIRST to prevent concatenation errors with older CSVs
+            
             # Insert a new column at the very beginning to identify the experiment
-            df.insert(0, 'Experiment', experiment_name)
+            df.insert(0, 'Experimento', experiment_name)
             
             all_experiment_dfs.append(df)
             

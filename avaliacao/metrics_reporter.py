@@ -16,6 +16,15 @@ from pathlib import Path
 class MetricsReporter:
     """Responsible for aggregating distributed metric JSONs into unified tabular reports."""
     
+    # Translation dictionary stored as a class attribute for easy editing
+    COLUMN_TRANSLATIONS = {
+        'Model': 'Membro do Comitê',
+        'relaxed_precision': 'Precisão',
+        'relaxed_recall': 'Sensibilidade',
+        'relaxed_f1': 'F1',
+        'ece': 'ECE'
+    }    
+    
     def __init__(self, base_output_dir: str, n_models: int):
         self.base_output_dir = Path(base_output_dir)
         self.n_models = n_models
@@ -24,9 +33,8 @@ class MetricsReporter:
     def _format_metrics_to_percentage(df: pd.DataFrame, exclude_cols: list[str] = None) -> pd.DataFrame:
         """Helper: Converts float metric columns to rounded percentage numbers (e.g., 0.85432 -> 85.43)."""
         df_formatted = df.copy()        
-        exclude_cols = exclude_cols or ['Model', 'Experiment']
         
-        # Select all floating-point metric columns
+        # Select all floating-point metric columns (automatically ignores strings)
         float_cols = [
             col for col in df_formatted.select_dtypes(include=['float', 'float64']).columns    
         ]
@@ -75,6 +83,9 @@ class MetricsReporter:
             
             # 2. Scale to percentage scale (0–100) and round to 2 decimal places (retains float dtype)
             df = self._format_metrics_to_percentage(df)
+            
+            # 3. Apply Presentation Layer translation right before export
+            df = df.rename(columns=self.COLUMN_TRANSLATIONS)
             
         if export_csv and not df.empty:
             output_path = self.base_output_dir / f'ensemble_mosaic_summary_{buffer_px}px.csv'
