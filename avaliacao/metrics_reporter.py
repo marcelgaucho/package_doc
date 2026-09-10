@@ -18,7 +18,7 @@ class MetricsReporter:
     
     # Translation dictionary stored as a class attribute for easy editing
     COLUMN_TRANSLATIONS = {
-        'Model': 'Membro do Comitê',
+        'Model': 'Membro',
         'relaxed_precision': 'Precisão',
         'relaxed_recall': 'Sensibilidade',
         'relaxed_f1': 'F1',

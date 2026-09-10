@@ -76,6 +76,13 @@ class EnsembleConfig:
                 f"  -> 'use_uce' is True, but 'dropout_rate' is {dropout_rate}.\n"
                 f"  -> Uncertainty-Aware training requires a dropout_rate > 0 to function."
             )
+            
+        if not use_uce and float(dropout_rate) > 0.0:
+            raise ValueError(
+                f"Configuration Error in experiment '{self.experiment_name}': \n"
+                f"  -> 'use_uce' is False, but 'dropout_rate' is {dropout_rate}.\n"
+                f"  -> Standard training baseline requires a dropout_rate = 0 to function."
+            )
 
     @classmethod
     def from_yaml(cls, experiment_yaml_path: str, base_yaml_path: str = 'base_config.yaml'):

@@ -119,16 +119,25 @@ def main():
             
     # --- COMPARISON PLOT ---
     if config.save_comparison_plot:
-        # Reference the exact CSV master summary to get the model with median F1 for each experiment
         base_directory_path = Path(config.base_exp_dir)
+        
+        # Map plot display titles to experiment identifiers
+        experiment_map = {
+            'Standard CE': 'cross_standard',
+            'U-CE': 'cross_uce'
+        }
+        
         figure_generator = FigureGenerator(
             base_exp_dir=config.base_exp_dir,
-            master_csv_path=base_directory_path / 'master_experiment_summary_0px.csv'
+            master_csv_path=base_directory_path / 'master_experiment_summary_0px.csv',
+            experiment_map=experiment_map
         )
         
-        # Pick an index that highlights the benefits of uncertainty-aware losses
+        # Plot figure with a patch that highlights the benefits of uncertainty-aware losses
         TARGET_PATCH = 42
-        figure_generator.generate_figure(patch_idx=TARGET_PATCH, save_path=base_directory_path / "comparison_grid.pdf")
+        figure_generator.generate_figure(patch_idx=TARGET_PATCH, 
+                                         save_path=base_directory_path / "comparison_grid.pdf",
+                                         strategy='median')
             
 
 # %%
