@@ -92,6 +92,73 @@ class FigureGenerator:
         else:
             raise ValueError(f"Unknown ensemble strategy: {strategy}")
             
+    @staticmethod
+    def _calculate_patch_f1(y_true: np.ndarray, y_pred: np.ndarray, ignore_index: int = 255) -> float:        
+        """
+        Calculates the F1-Score for a single patch, filtering out ignored pixels.
+        """
+        # Create a mask for valid pixels
+        valid_mask = (y_true != ignore_index)
+        y_t = y_true[valid_mask]
+        y_p = y_pred[valid_mask]
+        
+        # Calculate True Positives, False Positives, and False Negatives
+        tp = np.sum((y_t == 1) & (y_p == 1))
+        fp = np.sum((y_t == 0) & (y_p == 1))
+        fn = np.sum((y_t == 1) & (y_p == 0))
+        
+        # Handle edge cases (e.g., patch is entirely background)
+        if tp + fp + fn == 0:
+            return 1.0 if np.sum(y_t == 1) == 0 and np.sum(y_p == 1) == 0 else 0.0
+        
+        return 2 * tp / (2 * tp + fp + fn) 
+
+    def recommend_best_patches(self, baseline_exp: str, target_exp: str, strategy: str = 'median',
+                              top_k: int = 5, ignore_index: int = 255) -> list[int]:
+        """
+        Scans the test set to find patches where the target experiment 
+        (e.g., U-CE) most strongly outperforms the baseline (e.g., Standard CE).
+        """
+        print(f"Scanning dataset to compare '{target_exp}' vs '{baseline_exp}' (Strategy: {strategy})...")
+        
+        # Load the ground truth using memory mapping to get the total number of patches
+        y_all = np.load(self.y_path, mmap_mode='r')
+        n_patches = y_all.shape[0]
+        
+        deltas = []
+        
+        # Evaluate patch by patch to avoid loading everything into RAM
+        for idx in range(n_patches):
+            y_true = y_all[idx]
+            
+            # Fetch predictions using your existing clean methods
+            if strategy == 'median':
+                pred_base = self._get_median_patch(baseline_exp, idx)
+                pred_target = self._get_median_patch(target_exp, idx)
+            else:
+                pred_base = self._get_ensemble_patch(baseline_exp, idx, strategy)
+                pred_target = self._get_ensemble_patch(target_exp, idx, strategy)
+            
+            # Calculate scores
+            f1_base = self._calculate_patch_f1(y_true, pred_base, ignore_index)
+            f1_target = self._calculate_patch_f1(y_true, pred_target, ignore_index)
+            
+            # Record the improvement delta (Target - Baseline)
+            improvement = f1_target - f1_base
+            deltas.append((idx, improvement, f1_base, f1_target))
+            
+        # Sort by the largest improvement (Target > Baseline)
+        deltas.sort(key=lambda x: x[1], reverse=True)
+        
+        print("\n--- Top Candidates ---")
+        for rank in range(min(top_k, len(deltas))):
+            idx, delta, f1_b, f1_t = deltas[rank]
+            print(f"Rank {rank+1}: Patch {idx:04d} | Delta: +{delta:.4f} "
+                  f"(Baseline F1: {f1_b:.4f}, Target F1: {f1_t:.4f})")
+            
+        # Return just the indices of the top results
+        return [item[0] for item in deltas[:top_k]]        
+            
     def generate_figure(self, patch_idx: int, save_path: Union[str, Path], 
                         strategy: str = 'median', n_rows: int = None, n_cols: int = None):
         """

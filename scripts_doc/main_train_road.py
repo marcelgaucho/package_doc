@@ -120,6 +120,7 @@ def main():
     # --- COMPARISON PLOT ---
     if config.save_comparison_plot:
         base_directory_path = Path(config.base_exp_dir)
+        strategy = 'median' # strategy to generate patch from ensemble        
         
         # Map plot display titles to experiment identifiers
         experiment_map = {
@@ -133,11 +134,22 @@ def main():
             experiment_map=experiment_map
         )
         
-        # Plot figure with a patch that highlights the benefits of uncertainty-aware losses
-        TARGET_PATCH = 42
-        figure_generator.generate_figure(patch_idx=TARGET_PATCH, 
-                                         save_path=base_directory_path / "comparison_grid.pdf",
-                                         strategy='median')
+        best_patches = figure_generator.recommend_best_patches(
+            baseline_exp=experiment_map['Standard CE'],   
+            target_exp=experiment_map['U-CE'],  
+            strategy=strategy, 
+            top_k=5
+        )
+        
+        # Iterate through top recommendations to manually pick the best patch
+        for rank, patch_idx in enumerate(best_patches):
+            save_name = f"candidate_rank{rank+1}_patch{patch_idx}.pdf"
+            save_path = base_directory_path / save_name
+            figure_generator.generate_figure(
+                patch_idx=patch_idx, 
+                save_path=save_path, 
+                strategy=strategy
+            )
             
 
 # %%
