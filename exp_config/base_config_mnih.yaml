@@ -1,6 +1,6 @@
-x_dir: "experimentos_massachusetts_sibgrapi_perc_5/x_dir/"
-y_dir: "experimentos_massachusetts_sibgrapi_perc_5/y_dir/"
-base_exp_dir: "experimentos_massachusetts_sibgrapi_perc_5/"
+x_dir: "experimentos_massachusetts_sbsr_perc_5_subset_2500/x_dir/"
+y_dir: "experimentos_massachusetts_sbsr_perc_5_subset_2500/y_dir/"
+base_exp_dir: "experimentos_massachusetts_sbsr_perc_5_subset_2500/"
 
 model_params:
   input_shape: [256, 256, 3]
@@ -37,4 +37,6 @@ uncertainty_kwargs:
   export_mosaics: True
   generate_plot: True
   
-run_aggregate_report: true
+run_aggregate_report: false
+
+save_comparison_plot: true

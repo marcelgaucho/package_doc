@@ -138,7 +138,8 @@ def main():
             baseline_exp=experiment_map['Standard CE'],   
             target_exp=experiment_map['U-CE'],  
             strategy=strategy, 
-            top_k=5
+            top_k=10,
+            min_positive_pixels=5000
         )
         
         # Iterate through top recommendations to manually pick the best patch

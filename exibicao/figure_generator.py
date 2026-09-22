@@ -114,10 +114,11 @@ class FigureGenerator:
         return 2 * tp / (2 * tp + fp + fn) 
 
     def recommend_best_patches(self, baseline_exp: str, target_exp: str, strategy: str = 'median',
-                              top_k: int = 5, ignore_index: int = 255) -> list[int]:
+                              top_k: int = 5, ignore_index: int = 255, min_positive_pixels: int = 500) -> list[int]:
         """
         Scans the test set to find patches where the target experiment 
-        (e.g., U-CE) most strongly outperforms the baseline (e.g., Standard CE).
+        (e.g., U-CE) most strongly outperforms the baseline (e.g., Standard CE),
+        ensuring the patch actually contains the positive class.
         """
         print(f"Scanning dataset to compare '{target_exp}' vs '{baseline_exp}' (Strategy: {strategy})...")
         
@@ -130,6 +131,10 @@ class FigureGenerator:
         # Evaluate patch by patch to avoid loading everything into RAM
         for idx in range(n_patches):
             y_true = y_all[idx]
+            
+            # Fast-Rejection: Skip patches without enough positive class features
+            if np.sum(y_true == 1) < min_positive_pixels:
+                continue
             
             # Fetch predictions using your existing clean methods
             if strategy == 'median':

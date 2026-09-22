@@ -26,20 +26,27 @@ class MidpointPatchMerger:
         self._base_mask = np.ones((patch_size, patch_size, 1), dtype=np.float32)
 
     def __call__(self, patches, coords, dtype=np.uint8):
+        # Reset accumulators for safe reuse
+        self.img_acc.fill(0)
+        self.weight_acc.fill(0)
+
         # Global coordinate bounds
         min_y, min_x = np.min(coords[:, 0]), np.min(coords[:, 1])
         max_y, max_x = np.max(coords[:, 2]), np.max(coords[:, 3])
         
-        half_ov = self.overlap_px // 2
-        rem_ov = self.overlap_px - half_ov
+        # Pre-calculate overlap splits if overlap exists
+        if self.overlap_px > 0:
+            half_ov = self.overlap_px // 2
+            rem_ov = self.overlap_px - half_ov
 
         for patch, (ymin, xmin, ymax, xmax) in zip(patches, coords):
-            # 1. Generate mask on the fly and handle overlaps
+            # 1. Generate mask on the fly and handle overlaps (skipped entirely if there is no overlap)
             mask = self._base_mask.copy()
-            if ymin > min_y: mask[:half_ov, :] = 0 # Top overlap
-            if xmin > min_x: mask[:, :half_ov] = 0 # Left overlap
-            if ymax < max_y: mask[-rem_ov:, :] = 0 # Bottom overlap 
-            if xmax < max_x: mask[:, -rem_ov:] = 0 # Right overlap
+            if self.overlap_px > 0:
+                if ymin > min_y: mask[:half_ov, :] = 0 # Top overlap
+                if xmin > min_x: mask[:, :half_ov] = 0 # Left overlap
+                if ymax < max_y: mask[-rem_ov:, :] = 0 # Bottom overlap 
+                if xmax < max_x: mask[:, -rem_ov:] = 0 # Right overlap
 
             # 2. Map coordinates to target image bounds
             img_ymin, img_xmin = max(0, ymin), max(0, xmin) # Image starts in (0, 0)
@@ -60,7 +67,7 @@ class MidpointPatchMerger:
             raise ValueError("Reconstruction failed: Gap detected in patch coverage.")
         
         if np.any(self.weight_acc > 1):
-            warnings.warn("Overlap detected: some pixels merged from multiple patches.", UserWarning)
+            warnings.warn("Overlap detected: some pixels merged from multiple patches.", UserWarning) # Raise warning if half split logic is failing
 
         # Average and cast (for safety)
         return np.divide(self.img_acc, self.weight_acc, 

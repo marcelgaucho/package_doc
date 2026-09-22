@@ -22,6 +22,7 @@ LOSS_REGISTRY = {
     "generalized_dice_loss": losses.get_generalized_dice_loss,
     "u_categorical_crossentropy": losses.get_u_categorical_crossentropy,
     "u_dice_loss": losses.get_u_dice_loss,
+    "u_dice_loss_errors_only": losses.get_u_dice_loss_errors_only,
     "u_combo_loss": losses.get_u_combo_loss    
 }
 
